@@ -1,4 +1,4 @@
-using Apps.Appname.Constants;
+using Apps.Intento.Constants;
 using Blackbird.Applications.Sdk.Common.Authentication;
 using Blackbird.Applications.Sdk.Common.Exceptions;
 using Blackbird.Applications.Sdk.Utils.Extensions.Sdk;
@@ -6,7 +6,7 @@ using Blackbird.Applications.Sdk.Utils.RestSharp;
 using Newtonsoft.Json;
 using RestSharp;
 
-namespace Apps.Appname.Api;
+namespace Apps.Intento.Api;
 
 public class Client : BlackBirdRestClient
 {

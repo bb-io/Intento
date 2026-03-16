@@ -1,8 +1,8 @@
-﻿using Apps.Appname.Handlers;
+using Apps.Intento.Handlers;
 using Blackbird.Applications.Sdk.Common.Dynamic;
-using Tests.Appname.Base;
+using Tests.Intento.Base;
 
-namespace Tests.Appname;
+namespace Tests.Intento;
 
 [TestClass]
 public class HandlerTests : TestBase

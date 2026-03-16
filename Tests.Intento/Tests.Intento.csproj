@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Apps.Appname\Apps.Appname.csproj" />
+    <ProjectReference Include="..\Apps.Intento\Apps.Intento.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,7 +1,7 @@
-﻿using Apps.Appname.Actions;
-using Tests.Appname.Base;
+using Apps.Intento.Actions;
+using Tests.Intento.Base;
 
-namespace Tests.Appname;
+namespace Tests.Intento;
 
 [TestClass]
 public class ActionTests : TestBase

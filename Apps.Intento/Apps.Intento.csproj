@@ -4,10 +4,10 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <Product>Appname</Product>
+        <Product>Intento</Product>
         <Description>Description</Description>
         <Version>1.0.0</Version>
-        <AssemblyName>Apps.Appname</AssemblyName>
+        <AssemblyName>Apps.Intento</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>

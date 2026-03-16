@@ -1,8 +1,8 @@
-using Apps.Appname.Connections;
+using Apps.Intento.Connections;
 using Blackbird.Applications.Sdk.Common.Authentication;
-using Tests.Appname.Base;
+using Tests.Intento.Base;
 
-namespace Tests.Appname;
+namespace Tests.Intento;
 
 [TestClass]
 public class ConnectionValidatorTests : TestBase

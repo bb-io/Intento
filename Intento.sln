@@ -1,11 +1,11 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34330.188
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apps.Appname", "Apps.Appname\Apps.Appname.csproj", "{EB25604E-8EBA-464E-BEDF-30EA95395AD3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apps.Intento", "Apps.Intento\Apps.Intento.csproj", "{EB25604E-8EBA-464E-BEDF-30EA95395AD3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests.Appname", "Tests.Appname\Tests.Appname.csproj", "{B360EE3D-9F9A-4751-B39B-DB9766F201D1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests.Intento", "Tests.Intento\Tests.Intento.csproj", "{B360EE3D-9F9A-4751-B39B-DB9766F201D1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
