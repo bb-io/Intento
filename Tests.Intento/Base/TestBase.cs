@@ -3,6 +3,7 @@ using Blackbird.Applications.Sdk.Common.Invocation;
 using Microsoft.Extensions.Configuration;
 
 namespace Tests.Intento.Base;
+
 public class TestBase
 {
     public IEnumerable<AuthenticationCredentialsProvider> Creds { get; set; }

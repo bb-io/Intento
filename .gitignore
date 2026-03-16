@@ -367,3 +367,4 @@ MigrationBackup/
 FodyWeavers.xsd
 
 */appsettings.json
+/Tests.Intento/appsettings.json
