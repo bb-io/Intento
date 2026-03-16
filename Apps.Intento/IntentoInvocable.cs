@@ -5,13 +5,13 @@ using Blackbird.Applications.Sdk.Common.Invocation;
 
 namespace Apps.Intento;
 
-public class Invocable : BaseInvocable
+public class IntentoInvocable : BaseInvocable
 {
     protected AuthenticationCredentialsProvider[] Creds =>
         InvocationContext.AuthenticationCredentialsProviders.ToArray();
 
     protected IntentoClient Client { get; }
-    public Invocable(InvocationContext invocationContext) : base(invocationContext)
+    public IntentoInvocable(InvocationContext invocationContext) : base(invocationContext)
     {
         Client = new(Creds);
     }
