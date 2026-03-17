@@ -2,6 +2,7 @@
 using Apps.Intento.Model.Dto;
 using Apps.Intento.Model.Request;
 using Apps.Intento.Model.Response;
+using Apps.Intento.Service;
 using Blackbird.Applications.Sdk.Common;
 using Blackbird.Applications.Sdk.Common.Actions;
 using Blackbird.Applications.Sdk.Common.Exceptions;
@@ -16,7 +17,6 @@ using Blackbird.Filters.Xliff.Xliff1;
 using RestSharp;
 using System.Text;
 using System.Xml.Linq;
-using static Apps.Intento.Service.TranslationRequestBuilder;
 
 namespace Apps.Intento.Actions;
 
@@ -30,7 +30,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
         var client = new IntentoClient(InvocationContext.AuthenticationCredentialsProviders);
         var request = new RestRequest("/ai/text/translate", Method.Post);
 
-        var body = IntentoTranslationRequestBuilder.BuildSingleTextPayload(
+        var body = TranslationRequestBuilder.BuildSingleTextPayload(
             input.Text,
             input.TargetLanguage,
             input.SourceLanguage,
@@ -187,7 +187,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
 
         var request = new RestRequest("/ai/text/translate", Method.Post);
 
-        var body = IntentoTranslationRequestBuilder.BuildNativeFilePayload(
+        var body = TranslationRequestBuilder.BuildNativeFilePayload(
             fileContent,
             input.TargetLanguage,
             input.SourceLanguage,
@@ -231,7 +231,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
     {
         var request = new RestRequest("/ai/text/translate", Method.Post);
 
-        var body = IntentoTranslationRequestBuilder.BuildBatchTextPayload(
+        var body = TranslationRequestBuilder.BuildBatchTextPayload(
             sourceTexts,
             targetLanguage,
             sourceLanguage,

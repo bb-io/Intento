@@ -370,4 +370,4 @@ FodyWeavers.xsd
 /Tests.Intento/appsettings.json
 
 # TestFiles Output folders
-**/TestFiles/Output
+/Tests.Intento/TestFiles/Output/

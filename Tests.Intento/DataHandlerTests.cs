@@ -37,5 +37,21 @@ public class DataHandlerTests : TestBase
 
         Assert.IsNotNull(result);
     }
+
+    [TestMethod]
+    public async Task OcrProviderDataHandler_IsSuccess()
+    {
+        var handler = new OcrProviderDataHandler(InvocationContext);
+        var result = await handler.GetDataAsync(new Blackbird.Applications.Sdk.Common.Dynamic.DataSourceContext
+        {
+        }, CancellationToken.None);
+
+        foreach (var item in result)
+        {
+            Console.WriteLine($"Value: {item.Value}, DisplayName: {item.DisplayName}");
+        }
+
+        Assert.IsNotNull(result);
+    }
 }
 
