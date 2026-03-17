@@ -1,8 +1,9 @@
 ﻿using Blackbird.Applications.Sdk.Common;
+using Blackbird.Applications.SDK.Blueprints.Interfaces.Translate;
 
 namespace Apps.Intento.Model.Response;
 
-public class TranslateTextResponse
+public class TranslateTextResponse : ITranslateTextOutput
 {
     [Display("Translated text")]
     public string TranslatedText { get; set; } = string.Empty;

@@ -2,7 +2,7 @@
 
 namespace Apps.Intento.Model.Dto;
 
-public class TranslateTextApiResponse
+public class TranslateTextResponseDto
 {
     [JsonProperty("results")]
     public List<string>? Results { get; set; }

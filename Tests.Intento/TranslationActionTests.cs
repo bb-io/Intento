@@ -24,5 +24,51 @@ public class TranslationActionTests : TestBase
         Assert.IsNotNull(result);
         Assert.AreEqual("¡Hola, mundo!", result.TranslatedText);
     }
+
+    [TestMethod]
+    public async Task Translate_blackbird_strategy_IsSuccess()
+    {
+        var action = new TranslationActions(InvocationContext, FileManager);
+        var result = await action.TranslateFile(new TranslateFileRequest
+        {
+            File= new Blackbird.Applications.Sdk.Common.Files.FileReference
+            {
+                //Name = "taus.xliff"
+                Name = "Starting a flight.html"
+            },
+            FileTranslationStrategy = "blackbird",
+            SourceLanguage = "en",
+            TargetLanguage = "es",
+            ApplyTranslationStorage = true,
+            UpdateTranslationStorage = true,
+            DisableNoTrace = true,
+            OutputFileHandling = "original"
+        });
+        Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(result));
+        Assert.IsNotNull(result);
+    }
+
+    [TestMethod]
+    public async Task Translate_intento_strategy_IsSuccess()
+    {
+        var action = new TranslationActions(InvocationContext, FileManager);
+        var result = await action.TranslateFile(new TranslateFileRequest
+        {
+            File = new Blackbird.Applications.Sdk.Common.Files.FileReference
+            {
+                Name = "taus.xliff"
+                //Name = "Starting a flight.html"
+            },
+            FileTranslationStrategy = "intento",
+            SourceLanguage = "en",
+            TargetLanguage = "es",
+            ApplyTranslationStorage = true,
+            UpdateTranslationStorage = true,
+            DisableNoTrace = true,
+            OutputFileHandling = "original"
+        });
+        Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(result));
+        Assert.IsNotNull(result);
+    }
 }
 
