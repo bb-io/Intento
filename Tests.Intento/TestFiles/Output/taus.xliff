@@ -162,7 +162,7 @@
       <segment state="initial">
         <source>
           <sc id="1" dataRef="d1" />Best Time to Visit:<ec dataRef="d2" startRef="1" /></source>
-        <target>La mejor época para visitarlo:</target>
+        <target>Mejor época para visitarlo:</target>
       </segment>
     </unit>
     <unit id="u20" name="/html[1]/body[1]/div[5]/div[1]/ul[1]/li[1]/p[2]">
