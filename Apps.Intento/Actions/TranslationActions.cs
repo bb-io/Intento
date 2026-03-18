@@ -30,7 +30,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
         var client = new IntentoClient(InvocationContext.AuthenticationCredentialsProviders);
         var request = new RestRequest("/ai/text/translate", Method.Post);
 
-        var body = TranslationRequestBuilder.BuildSingleTextPayload(
+        var body = RequestBuilder.BuildSingleTextPayload(
             input.Text,
             input.TargetLanguage,
             input.SourceLanguage,
@@ -187,7 +187,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
 
         var request = new RestRequest("/ai/text/translate", Method.Post);
 
-        var body = TranslationRequestBuilder.BuildNativeFilePayload(
+        var body = RequestBuilder.BuildNativeFilePayload(
             fileContent,
             input.TargetLanguage,
             input.SourceLanguage,
@@ -231,7 +231,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
     {
         var request = new RestRequest("/ai/text/translate", Method.Post);
 
-        var body = TranslationRequestBuilder.BuildBatchTextPayload(
+        var body = RequestBuilder.BuildBatchTextPayload(
             sourceTexts,
             targetLanguage,
             sourceLanguage,

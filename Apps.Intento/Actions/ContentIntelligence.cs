@@ -29,7 +29,7 @@ public class ContentIntelligence(InvocationContext invocationContext, IFileManag
 
         var request = new RestRequest("/ai/image/ocr", Method.Post);
 
-        var body = TranslationRequestBuilder.BuildOcrImagePayload(
+        var body = RequestBuilder.BuildOcrImagePayload(
             base64Image,
             input.Provider);
 

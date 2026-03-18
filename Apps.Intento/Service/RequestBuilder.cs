@@ -1,9 +1,10 @@
-﻿using Newtonsoft.Json;
+﻿using Apps.Intento.Model.Request;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Apps.Intento.Service;
 
-public static class TranslationRequestBuilder
+public static class RequestBuilder
 {
     public static string BuildSingleTextPayload(
         string text,
@@ -27,7 +28,7 @@ public static class TranslationRequestBuilder
         {
             payload["context"]!["from"] = sourceLanguage;
         }
-
+        
         var service = BuildServiceObject(
             smartRouting,
             applyTranslationStorage,
@@ -38,6 +39,117 @@ public static class TranslationRequestBuilder
         if (service != null)
         {
             payload["service"] = service;
+        }
+
+        return payload.ToString(Formatting.None);
+    }
+
+    public static string BuildUsageStatisticsPayload(GetUsageStatisticsRequest input)
+    {
+        var payload = new JObject();
+
+        var range = new JObject();
+
+        if (!string.IsNullOrWhiteSpace(input.Bucket))
+            range["bucket"] = input.Bucket;
+
+        if (input.Items.HasValue)
+            range["items"] = input.Items.Value;
+
+        if (input.From.HasValue)
+            range["from"] = input.From.Value;
+
+        if (input.To.HasValue)
+            range["to"] = input.To.Value;
+
+        if (range.HasValues)
+            payload["range"] = range;
+
+        var filter = new JObject();
+
+        if (!string.IsNullOrWhiteSpace(input.Provider))
+            filter["provider"] = input.Provider;
+
+        if (!string.IsNullOrWhiteSpace(input.Intent))
+            filter["intent"] = input.Intent;
+
+        if (!string.IsNullOrWhiteSpace(input.Client))
+            filter["client"] = input.Client;
+
+        if (!string.IsNullOrWhiteSpace(input.Status))
+            filter["status"] = input.Status;
+
+        if (!string.IsNullOrWhiteSpace(input.LanguagePair))
+            filter["lang_pair"] = input.LanguagePair;
+
+        if (filter.HasValues)
+            payload["filter"] = filter;
+
+        return payload.ToString(Formatting.None);
+    }
+
+    public static string BuildSentimentPayload(string text, string language, string? provider)
+    {
+        var payload = new JObject
+        {
+            ["context"] = new JObject
+            {
+                ["text"] = text,
+                ["lang"] = language
+            }
+        };
+
+        if (!string.IsNullOrWhiteSpace(provider))
+        {
+            payload["service"] = new JObject
+            {
+                ["provider"] = provider
+            };
+        }
+
+        return payload.ToString(Formatting.None);
+    }
+
+    public static string BuildDictionaryPayload(string text, string sourceLanguage, string targetLanguage, string? provider)
+    {
+        var payload = new JObject
+        {
+            ["context"] = new JObject
+            {
+                ["text"] = text,
+                ["from"] = sourceLanguage,
+                ["to"] = targetLanguage
+            }
+        };
+
+        if (!string.IsNullOrWhiteSpace(provider))
+        {
+            payload["service"] = new JObject
+            {
+                ["provider"] = provider
+            };
+        }
+
+        return payload.ToString(Formatting.None);
+    }
+
+    public static string BuildClassifyPayload(string text, string language, string? provider)
+    {
+        var payload = new JObject
+        {
+            ["context"] = new JObject
+            {
+                ["text"] = text,
+                ["lang"] = language
+            }
+        };
+
+        if (!string.IsNullOrWhiteSpace(provider))
+        {
+            payload["service"] = new JObject
+            {
+                ["provider"] = provider
+            };
         }
 
         return payload.ToString(Formatting.None);

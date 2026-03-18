@@ -40,7 +40,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         var request = new RestRequest("/evaluate/score", Method.Post);
 
-        var body = TranslationRequestBuilder.BuildReviewTextPayload(
+        var body = RequestBuilder.BuildReviewTextPayload(
             input.SourceText,
             input.TargetText,
             input.TargetLanguage,
@@ -202,7 +202,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     {
         var request = new RestRequest("/evaluate/score", Method.Post);
 
-        var body = TranslationRequestBuilder.BuildReviewBatchPayload(
+        var body = RequestBuilder.BuildReviewBatchPayload(
             sourceTexts,
             targetTexts,
             targetLanguage,
