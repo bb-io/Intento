@@ -64,7 +64,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     }
 
     [BlueprintActionDefinition(BlueprintAction.ReviewFile)]
-    [Action("Review file", Description = "Review translation quality for a file")]
+    [Action("Review", Description = "Review translation quality for a file")]
     public async Task<QualityEstimationResponse> ReviewFile([ActionParameter] ReviewFileRequest input)
     {
         if (input.File == null)

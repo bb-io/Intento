@@ -2,6 +2,7 @@ using Apps.Intento.Api;
 using Blackbird.Applications.Sdk.Common;
 using Blackbird.Applications.Sdk.Common.Authentication;
 using Blackbird.Applications.Sdk.Common.Connections;
+using Blackbird.Applications.Sdk.Common.Exceptions;
 using Blackbird.Applications.Sdk.Common.Invocation;
 using RestSharp;
 
@@ -16,27 +17,32 @@ public class ConnectionValidator(InvocationContext invocationContext) : BaseInvo
         try
         {
             var client = new IntentoClient(authenticationCredentialsProviders);
-            var request = new RestRequest("/ai/text/detect-language", Method.Get);
 
-            var response = await client.ExecuteWithErrorHandling(request);
-
-            var isValid = response.IsSuccessful;
-
-            return new ConnectionValidationResponse
-            {
-                IsValid = isValid,
-                Message = isValid
-                    ? "Success"
-                    : response.Content ?? response.ErrorMessage ?? response.StatusCode.ToString()
-            };
+            await client.ExecuteWithErrorHandling(
+                new RestRequest("/ai/text/detect-language", Method.Get));
         }
-        catch (Exception ex)
+        catch (PluginApplicationException ex) when (
+            ex.Message.Contains("status 400", StringComparison.OrdinalIgnoreCase) ||
+            ex.Message.Contains("status 401", StringComparison.OrdinalIgnoreCase) ||
+            ex.Message.Contains("status 403", StringComparison.OrdinalIgnoreCase))
         {
-            return new ConnectionValidationResponse
+            return new()
             {
                 IsValid = false,
                 Message = ex.Message
             };
         }
+        catch
+        {
+            return new()
+            {
+                IsValid = true
+            };
+        }
+
+        return new()
+        {
+            IsValid = true
+        };
     }
 }

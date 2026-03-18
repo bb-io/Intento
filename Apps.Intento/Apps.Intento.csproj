@@ -1,11 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <Product>Intento [Beta]</Product>
-        <Description>Description</Description>
+        <Description>Intento builds AI agents for enterprise localization using machine translation and multilingual generative AI.</Description>
         <Version>1.0.1</Version>
         <AssemblyName>Apps.Intento</AssemblyName>
     </PropertyGroup>

@@ -17,7 +17,7 @@ public class IntentoClient : BlackBirdRestClient
     })
     {
         this.AddDefaultHeader("apikey", creds.Get(CredsNames.Token).Value);
-        //this.AddDefaultHeader("User-Agent", "Intento.Integration.Blackbird/1.0");
+        this.AddDefaultHeader("User-Agent", "Intento.Integration.Blackbird/1.0");
     }
 
     public override async Task<T> ExecuteWithErrorHandling<T>(RestRequest request)

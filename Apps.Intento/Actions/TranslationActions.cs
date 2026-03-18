@@ -51,7 +51,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
     }
 
     [BlueprintActionDefinition(BlueprintAction.TranslateFile)]
-    [Action("Translate file", Description = "Translate file")]
+    [Action("Translate", Description = "Translate file by using one of the strategies: blackbird or intento")]
     public async Task<TranslateFileResponse> TranslateFile([ActionParameter] TranslateFileRequest input)
     {
         return input.FileTranslationStrategy switch
