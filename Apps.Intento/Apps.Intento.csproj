@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Product>Intento [Beta]</Product>
+        <Description>Intento builds AI agents for enterprise localization using machine translation and multilingual generative AI.</Description>
+        <Version>1.0.1</Version>
+        <AssemblyName>Apps.Intento</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <Compile Remove="image\**" />
+      <EmbeddedResource Remove="image\**" />
+      <None Remove="image\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Blackbird.Applications.SDK.Blueprints" Version="1.0.1" />
+        <PackageReference Include="Blackbird.Applications.Sdk.Common" Version="2.14.0" />
+        <PackageReference Include="Blackbird.Applications.Sdk.Utils" Version="1.1.0-rc.8709" />
+        <PackageReference Include="Blackbird.Filters" Version="1.1.55" />
+    </ItemGroup>
+
+</Project>

@@ -367,3 +367,7 @@ MigrationBackup/
 FodyWeavers.xsd
 
 */appsettings.json
+/Tests.Intento/appsettings.json
+
+# TestFiles Output folders
+/Tests.Intento/TestFiles/Output/
