@@ -6,14 +6,12 @@
         <Nullable>enable</Nullable>
         <Product>Intento [Beta]</Product>
         <Description>Intento builds AI agents for enterprise localization using machine translation and multilingual generative AI.</Description>
-        <Version>1.0.1</Version>
+        <Version>1.0.2</Version>
         <AssemblyName>Apps.Intento</AssemblyName>
     </PropertyGroup>
 
-    <ItemGroup>
-      <Compile Remove="image\**" />
-      <EmbeddedResource Remove="image\**" />
-      <None Remove="image\**" />
+   <ItemGroup>
+	<EmbeddedResource CopyToOutputDirectory="Always" Include="image\icon.png" />
     </ItemGroup>
 
     <ItemGroup>
