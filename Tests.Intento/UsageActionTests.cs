@@ -14,7 +14,7 @@ public class UsageActionTests : TestBase
 
         var result = await action.GetUsageStatistics(new GetUsageStatisticsRequest
         {
-            EndpointType = "intento",
+            EndpointType = "/usage/intento",
             Bucket = "1day",
             Provider = "ai.text.translate.microsoft.translator_text_api.3-0",
         });

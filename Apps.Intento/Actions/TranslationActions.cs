@@ -3,6 +3,7 @@ using Apps.Intento.Model.Dto;
 using Apps.Intento.Model.Request;
 using Apps.Intento.Model.Response;
 using Apps.Intento.Service;
+using Apps.Intento.Utils;
 using Blackbird.Applications.Sdk.Common;
 using Blackbird.Applications.Sdk.Common.Actions;
 using Blackbird.Applications.Sdk.Common.Exceptions;
@@ -91,17 +92,11 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
         if (string.IsNullOrWhiteSpace(content.SourceLanguage) || string.IsNullOrWhiteSpace(content.TargetLanguage))
             throw new PluginMisconfigurationException("Source or target language not defined.");
 
-        static string RenderLine(List<LineElement>? line) =>
-            line == null || line.Count == 0 ? string.Empty : string.Concat(line.Select(e => e.Render()));
-
-        static List<LineElement> MakeLine(string text) =>
-            new() { new LineElement { Value = text } };
-
         var overwriteExistingTargets = true;
 
         bool SegmentFilter(Segment s)
         {
-            if (string.IsNullOrWhiteSpace(RenderLine(s.Source)))
+            if (string.IsNullOrWhiteSpace(LineElementMapper.RenderLine(s.Source)))
                 return false;
 
             var isInitial = s.State == null || s.State == SegmentState.Initial;
@@ -110,7 +105,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
 
             if (!overwriteExistingTargets)
             {
-                var target = RenderLine(s.Target);
+                var target = LineElementMapper.RenderLine(s.Target);
                 if (!string.IsNullOrWhiteSpace(target))
                     return false;
             }
@@ -130,7 +125,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
             .Process<string>(async batch =>
             {
                 var sourceTexts = batch
-                    .Select(x => RenderLine(x.Segment.Source))
+                    .Select(x => LineElementMapper.RenderLine(x.Segment.Source))
                     .ToList();
 
                 var translatedTexts = await TranslateBatchViaTextEndpoint(
@@ -157,7 +152,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
                 if (string.IsNullOrWhiteSpace(r.Result))
                     continue;
 
-                r.Segment.Target = MakeLine(r.Result);
+                r.Segment.Target = LineElementMapper.MakeLine(r.Result);
             }
         }
 
@@ -359,7 +354,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
             var root = document.Root;
 
             if (root == null)
-                throw new PluginApplicationException("Invalid XLIFF file: root element is missing.");
+                throw new PluginMisconfigurationException("Invalid XLIFF file: root element is missing.");
 
             var version = root.Attribute("version")?.Value?.Trim();
             var ns = root.Name.NamespaceName;
@@ -376,7 +371,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
             if (version == "2.2" || ns.Contains("xliff:document:2.2", StringComparison.OrdinalIgnoreCase))
                 return "xliff-2.0";
 
-            throw new PluginApplicationException(
+            throw new PluginMisconfigurationException(
                 $"Unsupported XLIFF version. Version='{version}', Namespace='{ns}'.");
         }
         catch (PluginApplicationException)

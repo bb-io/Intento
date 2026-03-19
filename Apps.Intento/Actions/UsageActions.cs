@@ -19,14 +19,10 @@ public class UsageActions(InvocationContext invocationContext, IFileManagementCl
     [Action("Get usage statistics", Description = "Get usage statistics from Intento")]
     public async Task<GetUsageStatisticsResponse> GetUsageStatistics([ActionParameter] GetUsageStatisticsRequest input)
     {
-        var endpoint = input.EndpointType switch
-        {
-            "intento" => "/usage/intento",
-            "provider" => "/usage/provider",
-            _ => throw new PluginMisconfigurationException("Unsupported endpoint type")
-        };
+        if (string.IsNullOrWhiteSpace(input.EndpointType))
+            throw new PluginMisconfigurationException("Endpoint type is required.");
 
-        var request = new RestRequest(endpoint, Method.Post);
+        var request = new RestRequest(input.EndpointType, Method.Post);
 
         var body = RequestBuilder.BuildUsageStatisticsPayload(input);
         request.AddStringBody(body, ContentType.Json);
@@ -38,9 +34,6 @@ public class UsageActions(InvocationContext invocationContext, IFileManagementCl
         if (response.Data is JArray array)
         {
             buckets = array.ToObject<List<UsageBucketDto>>() ?? [];
-        }
-        else if (response.Data is JValue value && value.Type == JTokenType.String)
-        {
         }
         else if (response.Data != null && response.Data.Type != JTokenType.Null)
         {

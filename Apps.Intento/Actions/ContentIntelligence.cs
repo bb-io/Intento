@@ -24,7 +24,7 @@ public class ContentIntelligence(InvocationContext invocationContext, IFileManag
 
         var bytes = memoryStream.ToArray();
         if (bytes.Length == 0)
-            throw new PluginApplicationException("The uploaded image is empty.");
+            throw new PluginMisconfigurationException("The uploaded image is empty.");
 
         var base64Image = Convert.ToBase64String(bytes);
 

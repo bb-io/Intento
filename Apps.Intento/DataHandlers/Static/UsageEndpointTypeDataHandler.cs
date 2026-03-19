@@ -9,8 +9,8 @@ public class UsageEndpointTypeDataHandler : IStaticDataSourceItemHandler
     {
         return new[]
         {
-            new DataSourceItem("intento", "Intento usage"),
-            new DataSourceItem("provider", "Provider usage")
+            new DataSourceItem("/usage/intento", "Intento usage"),
+            new DataSourceItem("/usage/provider", "Provider usage")
         };
     }
 }

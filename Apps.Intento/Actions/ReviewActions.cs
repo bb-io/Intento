@@ -2,6 +2,7 @@
 using Apps.Intento.Model.Request;
 using Apps.Intento.Model.Response;
 using Apps.Intento.Service;
+using Apps.Intento.Utils;
 using Blackbird.Applications.Sdk.Common;
 using Blackbird.Applications.Sdk.Common.Actions;
 using Blackbird.Applications.Sdk.Common.Exceptions;
@@ -97,17 +98,14 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         int underThresholdCount = 0;
         double totalScore = 0.0;
 
-        static string RenderLine(List<LineElement>? line) =>
-            line == null || line.Count == 0 ? string.Empty : string.Concat(line.Select(e => e.Render()));
-
         bool SegmentFilter(Segment s)
         {
             if (s == null) return false;
             if (s.IsIgnorbale) return false;
             if (s.State == SegmentState.Final) return false;
 
-            var source = RenderLine(s.Source);
-            var target = RenderLine(s.Target);
+            var source = LineElementMapper.RenderLine(s.Source);
+            var target = LineElementMapper.RenderLine(s.Target);
 
             if (string.IsNullOrWhiteSpace(source)) return false;
             if (string.IsNullOrWhiteSpace(target)) return false;
@@ -122,11 +120,11 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             .Process<double>(async batch =>
             {
                 var sourceTexts = batch
-                    .Select(x => RenderLine(x.Segment.Source))
+                    .Select(x => LineElementMapper.RenderLine(x.Segment.Source))
                     .ToList();
 
                 var targetTexts = batch
-                    .Select(x => RenderLine(x.Segment.Target))
+                    .Select(x => LineElementMapper.RenderLine(x.Segment.Target))
                     .ToList();
 
                 var scores = await ReviewBatchViaScoreEndpoint(

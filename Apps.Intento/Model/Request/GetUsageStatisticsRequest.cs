@@ -8,7 +8,7 @@ public class GetUsageStatisticsRequest
 {
     [Display("Endpoint type")]
     [StaticDataSource(typeof(UsageEndpointTypeDataHandler))]
-    public string EndpointType { get; set; } = "intento";
+    public string EndpointType { get; set; } = "/usage/intento";
 
     [Display("Bucket")]
     [StaticDataSource(typeof(UsageBucketDataHandler))]
