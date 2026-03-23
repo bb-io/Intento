@@ -11,19 +11,16 @@ The Intento app enables Blackbird workflows to use Intento for machine translati
 ### Translation
 
 - **Translate text**: Translates text from one language to another.
-- **Translate**: Translates files using one of two strategies: `blackbird` for segment-based interoperable translation workflows and `intento` for native document translation. Supported native formats include TXT, HTML, HTM, XML, and CSV. XLIFF/XLF files are handled through the Blackbird strategy.
+- **Translate**: Translates files using one of two strategies: `blackbird` for segment-based interoperable translation workflows and `intento` for native document translation.
+  Native Intento strategy supports:
+  `TXT`, `HTML`, `HTM`, `XML`, `SRT`, `ICU`, `PDF`, `DOCX`, `XLSX`, `PPTX`, `PNG`, `JPG`, `JPEG`, `BMP`, and `ZIP`.
+  When a file format is not supported by the native Intento strategy, the app automatically falls back to the `blackbird` strategy.
+  For XLIFF/XLF files, the app uses native Intento only when the file can be mapped to `xliff-2.0`; otherwise it falls back to `blackbird`.
 
 ### Review
 
 - **Review text**: Reviews the quality of the provided source and target text and returns a score.
 - **Review**: Reviews translation quality for bilingual files, marks segments above the threshold as final, and returns the reviewed file together with summary metrics.
-
-### Content intelligence
-
-- **Extract text from an image**: Extracts text from an uploaded image using OCR.
-- **Get sentiment of text**: Analyzes the sentiment of a given text.
-- **Get meanings of text**: Retrieves dictionary meanings for the provided text.
-- **Classify text**: Classifies text into predefined categories.
 
 ### Usage
 

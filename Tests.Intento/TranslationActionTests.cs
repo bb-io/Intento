@@ -56,7 +56,7 @@ public class TranslationActionTests : TestBase
         {
             File = new Blackbird.Applications.Sdk.Common.Files.FileReference
             {
-                Name = "taus.xliff"
+                Name = "Sample IEP.pdf"
                 //Name = "Starting a flight.html"
             },
             FileTranslationStrategy = "intento",
