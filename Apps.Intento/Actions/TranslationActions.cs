@@ -161,24 +161,25 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
 
     private async Task<TranslateFileResponse> TranslateFileWithNativeStrategy(TranslateFileRequest input)
     {
-        var extension = Path.GetExtension(input.File.Name)?.ToLowerInvariant();
-        if (extension is ".xlf" or ".xliff")
-        {
-            return await TranslateFileWithBlackbirdStrategy(input);
-        }
-
         using var stream = await fileManagement.DownloadAsync(input.File);
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        var fileContent = await reader.ReadToEndAsync();
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+
+        var fileBytes = memoryStream.ToArray();
+        if (fileBytes.Length == 0)
+            throw new PluginApplicationException("The uploaded file is empty.");
+
+        var format = GetNativeIntentoFormat(input.File.Name, fileBytes);
+
+        if (format == null)
+            return await TranslateFileWithBlackbirdStrategy(input);
+
+        var fileContent = format.IsBinary
+            ? Convert.ToBase64String(fileBytes)
+            : ReadFileContent(fileBytes);
 
         if (string.IsNullOrWhiteSpace(fileContent))
             throw new PluginApplicationException("The uploaded file is empty.");
-
-        var format = GetNativeIntentoFormat(input.File.Name, fileContent);
-
-        if (format == null)
-            throw new PluginMisconfigurationException(
-                "This file format is not supported by Intento native strategy. Supported native formats: TXT, HTML, HTM, XML, CSV. Use Blackbird strategy for XLIFF/XLF and other formats.");
 
         var request = new RestRequest("/ai/text/translate", Method.Post);
 
@@ -186,7 +187,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
             fileContent,
             input.TargetLanguage,
             input.SourceLanguage,
-            format,
+            format.ApiFormat,
             input.SmartRouting,
             input.ApplyTranslationStorage,
             input.UpdateTranslationStorage,
@@ -200,12 +201,15 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
             throw new PluginApplicationException("Intento did not return operation id.");
 
         var translatedContent = await PollNativeFileOperationResult(operation.Id);
-
         var contentType = string.IsNullOrWhiteSpace(input.File.ContentType)
             ? "application/octet-stream"
             : input.File.ContentType;
 
-        await using var outputStream = new MemoryStream(Encoding.UTF8.GetBytes(translatedContent));
+        var outputBytes = format.IsBinary
+            ? DecodeBase64FileContent(translatedContent)
+            : Encoding.UTF8.GetBytes(translatedContent);
+
+        await using var outputStream = new MemoryStream(outputBytes);
 
         var uploadedFile = await fileManagement.UploadAsync(
             outputStream,
@@ -330,23 +334,54 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
         throw new PluginApplicationException("Intento native file translation polling timed out.");
     }
 
-    private static string? GetNativeIntentoFormat(string fileName, string fileContent)
+    private static NativeIntentoFormat? GetNativeIntentoFormat(string fileName, byte[] fileBytes)
     {
         var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
+        var fileContent = extension is ".xlf" or ".xliff"
+            ? ReadFileContent(fileBytes)
+            : null;
 
         return extension switch
         {
-            ".txt" => "text",
-            ".html" => "html",
-            ".htm" => "html",
-            ".xml" => "xml",
-            ".csv" => "text",
-            ".xlf" or ".xliff" => DetectXliffFormat(fileContent),
+            ".txt" => new NativeIntentoFormat("text", false),
+            ".html" => new NativeIntentoFormat("html", false),
+            ".htm" => new NativeIntentoFormat("html", false),
+            ".xml" => new NativeIntentoFormat("xml", false),
+            ".srt" => new NativeIntentoFormat("srt", false),
+            ".icu" => new NativeIntentoFormat("icu", false),
+            ".pdf" => new NativeIntentoFormat("pdf", true),
+            ".docx" => new NativeIntentoFormat("docx", true),
+            ".xlsx" => new NativeIntentoFormat("xlsx", true),
+            ".pptx" => new NativeIntentoFormat("pptx", true),
+            ".png" => new NativeIntentoFormat("png", true),
+            ".jpg" or ".jpeg" => new NativeIntentoFormat("jpeg", true),
+            ".bmp" => new NativeIntentoFormat("bmp", true),
+            ".zip" => new NativeIntentoFormat("zip", true),
+            ".xlf" or ".xliff" when fileContent != null => DetectNativeXliffFormat(fileContent),
             _ => null
         };
     }
 
-    private static string DetectXliffFormat(string fileContent)
+    private static string ReadFileContent(byte[] fileBytes)
+    {
+        using var memoryStream = new MemoryStream(fileBytes);
+        using var reader = new StreamReader(memoryStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        return reader.ReadToEnd();
+    }
+
+    private static byte[] DecodeBase64FileContent(string translatedContent)
+    {
+        try
+        {
+            return Convert.FromBase64String(translatedContent);
+        }
+        catch (FormatException ex)
+        {
+            throw new PluginApplicationException($"Intento returned invalid base64 file content: {ex.Message}");
+        }
+    }
+
+    private static NativeIntentoFormat? DetectNativeXliffFormat(string fileContent)
     {
         try
         {
@@ -359,20 +394,16 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
             var version = root.Attribute("version")?.Value?.Trim();
             var ns = root.Name.NamespaceName;
 
-            if (version == "1.2" || ns.Contains("xliff:document:1.2", StringComparison.OrdinalIgnoreCase))
-                return "xliff-1.2";
-
             if (version == "2.0" || ns.Contains("xliff:document:2.0", StringComparison.OrdinalIgnoreCase))
-                return "xliff-2.0";
+                return new NativeIntentoFormat("xliff-2.0", false);
 
             if (version == "2.1" || ns.Contains("xliff:document:2.1", StringComparison.OrdinalIgnoreCase))
-                return "xliff-2.0";
+                return new NativeIntentoFormat("xliff-2.0", false);
 
             if (version == "2.2" || ns.Contains("xliff:document:2.2", StringComparison.OrdinalIgnoreCase))
-                return "xliff-2.0";
+                return new NativeIntentoFormat("xliff-2.0", false);
 
-            throw new PluginMisconfigurationException(
-                $"Unsupported XLIFF version. Version='{version}', Namespace='{ns}'.");
+            return null;
         }
         catch (PluginApplicationException)
         {
@@ -405,4 +436,6 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
 
         throw new PluginApplicationException("Intento operation polling timed out.");
     }
+
+    private sealed record NativeIntentoFormat(string ApiFormat, bool IsBinary);
 }
