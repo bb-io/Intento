@@ -11,7 +11,7 @@ The Intento app enables Blackbird workflows to use Intento for machine translati
 ### Translation
 
 - **Translate text**: Translates text from one language to another.
-- **Translate**: Translates files using one of two strategies: `blackbird` for segment-based interoperable translation workflows and `intento` for native document translation.
+- **Translate**: Translates files using one of two strategies: `blackbird` for interoperable translation workflows and `intento` for native document translation.
   Native Intento strategy supports:
   `TXT`, `HTML`, `HTM`, `XML`, `SRT`, `ICU`, `PDF`, `DOCX`, `XLSX`, `PPTX`, `PNG`, `JPG`, `JPEG`, `BMP`, and `ZIP`.
   When a file format is not supported by the native Intento strategy, the app automatically falls back to the `blackbird` strategy.
@@ -19,8 +19,8 @@ The Intento app enables Blackbird workflows to use Intento for machine translati
 
 ### Review
 
-- **Review text**: Reviews the quality of the provided source and target text and returns a score.
-- **Review**: Reviews translation quality for bilingual files, marks segments above the threshold as final, and returns the reviewed file together with summary metrics.
+- **Review text**: Review translation quality for source and target text using IntentoQA.
+- **Review**: Review translation quality using IntentoLQA for bilingual files, marks segments above the threshold as final, and returns the reviewed file together with summary metrics.
 
 ### Usage
 

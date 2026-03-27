@@ -55,12 +55,12 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
     [Action("Translate", Description = "Translate file by using one of the strategies: blackbird or intento")]
     public async Task<TranslateFileResponse> TranslateFile([ActionParameter] TranslateFileRequest input)
     {
-        return input.FileTranslationStrategy switch
-        {
-            "blackbird" => await TranslateFileWithBlackbirdStrategy(input),
-            "intento" => await TranslateFileWithNativeStrategy(input),
-            _ => throw new PluginMisconfigurationException("Unsupported file translation strategy")
-        };
+        var strategy = ResolveFileTranslationStrategy(input.FileTranslationStrategy);
+
+        if (strategy == "intento")
+            return await TranslateFileWithNativeStrategy(input);
+
+        return await TranslateFileWithBlackbirdStrategy(input);
     }
 
     private async Task<TranslateFileResponse> TranslateFileWithBlackbirdStrategy(TranslateFileRequest input)
@@ -343,7 +343,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
 
         return extension switch
         {
-            ".txt" => new NativeIntentoFormat("text", false),
+            ".txt" => new NativeIntentoFormat("txt", false),
             ".html" => new NativeIntentoFormat("html", false),
             ".htm" => new NativeIntentoFormat("html", false),
             ".xml" => new NativeIntentoFormat("xml", false),
@@ -435,6 +435,18 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
         }
 
         throw new PluginApplicationException("Intento operation polling timed out.");
+    }
+
+    private static string ResolveFileTranslationStrategy(string? strategy)
+    {
+        if (string.IsNullOrWhiteSpace(strategy))
+            return "blackbird";
+
+        return strategy.Equals("intento", StringComparison.OrdinalIgnoreCase)
+            ? "intento"
+            : strategy.Equals("blackbird", StringComparison.OrdinalIgnoreCase)
+                ? "blackbird"
+                : throw new PluginMisconfigurationException("Unsupported file translation strategy");
     }
 
     private sealed record NativeIntentoFormat(string ApiFormat, bool IsBinary);
