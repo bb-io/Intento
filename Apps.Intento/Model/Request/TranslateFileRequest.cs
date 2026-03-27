@@ -35,9 +35,9 @@ public class TranslateFileRequest : ITranslateFileInput
     [Display("Disable no trace")]
     public bool? DisableNoTrace { get; set; }
 
-    [Display("File translation strategy")]
+    [Display("File translation strategy", Description = "Optional. Defaults to Blackbird when empty.")]
     [StaticDataSource(typeof(FileTranslationStrategyHandler))]
-    public string FileTranslationStrategy { get; set; } = "blackbird";
+    public string? FileTranslationStrategy { get; set; }
 
     [Display("Output file handling", Description = "original = return original format; otherwise returns XLIFF")]
     [StaticDataSource(typeof(ProcessFileFormatHandler))]

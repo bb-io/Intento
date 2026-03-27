@@ -9,7 +9,7 @@ public class FileTranslationStrategyHandler : IStaticDataSourceItemHandler
     {
         return new[]
         {
-            new DataSourceItem("blackbird", "Blackbird (segment-based)"),
+            new DataSourceItem("blackbird", "Blackbird (interoperable translation workflows)"),
             new DataSourceItem("intento", "Intento (native document translation)")
         };
     }

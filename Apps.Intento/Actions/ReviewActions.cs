@@ -24,7 +24,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     : IntentoInvocable(invocationContext)
 {
     [BlueprintActionDefinition(BlueprintAction.ReviewText)]
-    [Action("Review text", Description = "Review translation quality for source and target text")]
+    [Action("Review text", Description = "Review translation quality for source and target text using IntentoQA")]
     public async Task<ReviewTextResponse> ReviewText([ActionParameter] ReviewTextRequest input)
     {
         if (string.IsNullOrWhiteSpace(input.SourceText))
@@ -65,7 +65,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     }
 
     [BlueprintActionDefinition(BlueprintAction.ReviewFile)]
-    [Action("Review", Description = "Review translation quality for a file")]
+    [Action("Review", Description = "Review translation quality for a file using IntentoLQA")]
     public async Task<QualityEstimationResponse> ReviewFile([ActionParameter] ReviewFileRequest input)
     {
         if (input.File == null)

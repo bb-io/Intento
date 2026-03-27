@@ -56,7 +56,7 @@ public class TranslationActionTests : TestBase
         {
             File = new Blackbird.Applications.Sdk.Common.Files.FileReference
             {
-                Name = "Sample IEP.pdf"
+                Name = "Sample IEP_main.pdf"
                 //Name = "Starting a flight.html"
             },
             FileTranslationStrategy = "intento",
@@ -65,7 +65,7 @@ public class TranslationActionTests : TestBase
             ApplyTranslationStorage = true,
             UpdateTranslationStorage = true,
             DisableNoTrace = true,
-            OutputFileHandling = "original"
+            //OutputFileHandling = "original"
         });
         Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(result));
         Assert.IsNotNull(result);
