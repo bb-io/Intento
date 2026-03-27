@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <Product>Intento [Beta]</Product>
         <Description>Intento builds AI agents for enterprise localization using machine translation and multilingual generative AI.</Description>
-        <Version>1.0.4</Version>
+        <Version>1.0.5</Version>
         <AssemblyName>Apps.Intento</AssemblyName>
     </PropertyGroup>
 

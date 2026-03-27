@@ -201,20 +201,17 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
             throw new PluginApplicationException("Intento did not return operation id.");
 
         var translatedContent = await PollNativeFileOperationResult(operation.Id);
-        var contentType = string.IsNullOrWhiteSpace(input.File.ContentType)
-            ? "application/octet-stream"
-            : input.File.ContentType;
-
         var outputBytes = format.IsBinary
             ? DecodeBase64FileContent(translatedContent)
             : Encoding.UTF8.GetBytes(translatedContent);
+        var (outputFileName, contentType) = ResolveNativeOutputMetadata(input.File);
 
         await using var outputStream = new MemoryStream(outputBytes);
 
         var uploadedFile = await fileManagement.UploadAsync(
             outputStream,
             contentType,
-            input.File.Name);
+            outputFileName);
 
         return new TranslateFileResponse
         {
@@ -379,6 +376,23 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
         {
             throw new PluginApplicationException($"Intento returned invalid base64 file content: {ex.Message}");
         }
+    }
+
+    private static (string FileName, string ContentType) ResolveNativeOutputMetadata(
+        Blackbird.Applications.Sdk.Common.Files.FileReference inputFile)
+    {
+        if (Path.GetExtension(inputFile.Name).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            return (
+                Path.ChangeExtension(inputFile.Name, ".docx"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        }
+
+        var contentType = string.IsNullOrWhiteSpace(inputFile.ContentType)
+            ? "application/octet-stream"
+            : inputFile.ContentType;
+
+        return (inputFile.Name, contentType);
     }
 
     private static NativeIntentoFormat? DetectNativeXliffFormat(string fileContent)
