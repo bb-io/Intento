@@ -23,4 +23,10 @@ public class QualityEstimationResponse : IReviewFileOutput
 
     [Display("Percentage segments under threshold")]
     public float PercentageSegmentsUnderThreshhold { get; set; }
+
+    [Display("OpenAI results JSON")]
+    public string? OpenAiResultsJson { get; set; }
+
+    [Display("Rule-based results JSON")]
+    public string? RuleBasedResultsJson { get; set; }
 }
