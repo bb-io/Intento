@@ -1,4 +1,5 @@
 using Apps.Intento.DataHandlers;
+using Apps.Intento.DataHandlers.Static;
 using Blackbird.Applications.Sdk.Common;
 using Blackbird.Applications.Sdk.Common.Dictionaries;
 using Blackbird.Applications.Sdk.Common.Dynamic;
@@ -21,6 +22,7 @@ public class ReviewFileWithIntentoLqaRequest
     public string? SourceLanguage { get; set; }
 
     [Display("Score threshold")]
+    [StaticDataSource(typeof(ThresholdDataHandler))]
     public double? ScoreThreshold { get; set; }
 
     [Display("Output file handling", Description = "original = return original format; otherwise returns XLIFF")]

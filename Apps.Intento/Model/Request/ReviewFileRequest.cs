@@ -27,6 +27,7 @@ public class ReviewFileRequest : IReviewFileInput
     public string Model { get; set; } = "comet-mtqe";
 
     [Display("Score threshold")]
+    [StaticDataSource(typeof(ThresholdDataHandler))]
     public double? ScoreThreshold { get; set; }
 
     [Display("Output file handling", Description = "original = return original format; otherwise returns XLIFF")]
