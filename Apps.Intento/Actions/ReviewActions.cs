@@ -242,6 +242,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         var ruleBasedResults = new List<object>();
         var recordedOpenAiKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var recordedRuleBasedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var recordedNotes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var record in segmentRecords)
         {
@@ -265,6 +266,12 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                         CorrectTranslation = evaluation.Details.OpenAiResults["correctTranslation"]
                     });
                 }
+
+                AddIntentoNotes(
+                    record.Unit,
+                    evaluation.Details.OpenAiResults["content"]?["errors"] as JArray,
+                    source: "intento-openai",
+                    recordedNotes);
             }
 
             if (evaluation.Details?.RuleBasedResults != null)
@@ -279,6 +286,12 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                         Content = evaluation.Details.RuleBasedResults["content"]
                     });
                 }
+
+                AddIntentoNotes(
+                    record.Unit,
+                    evaluation.Details.RuleBasedResults["content"] as JArray,
+                    source: "intento-rule-based",
+                    recordedNotes);
             }
 
             record.Unit.Quality.ProfileReference = "Intento LQA";
@@ -667,6 +680,51 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         var response = await Client.ExecuteWithErrorHandling<SearchSegmentsResponseDto>(request);
         return response.Items?
             .FirstOrDefault(x => string.Equals(x.Meta?.ExternalKey, externalKey, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void AddIntentoNotes(Unit unit, JArray? errors, string source, HashSet<string> recordedNotes)
+    {
+        if (errors == null || errors.Count == 0)
+            return;
+
+        unit.Notes ??= [];
+
+        foreach (var errorToken in errors.OfType<JObject>())
+        {
+            var type = errorToken["error_type"]?.ToString()
+                ?? errorToken["errorType"]?.ToString();
+            var description = errorToken["description"]?.ToString();
+            var severity = errorToken["severity"]?.ToString();
+
+            if (string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(description))
+                continue;
+
+            var normalizedType = NormalizeNoteCategoryPart(type);
+            var category = $"{source}:{normalizedType}";
+            var text = string.IsNullOrWhiteSpace(severity)
+                ? description.Trim()
+                : $"[{severity.Trim()}] {description.Trim()}";
+            var noteKey = $"{unit.Id}|{category}|{text}";
+
+            if (!recordedNotes.Add(noteKey))
+                continue;
+
+            unit.Notes.Add(new Note(text)
+            {
+                Category = category
+            });
+        }
+    }
+
+    private static string NormalizeNoteCategoryPart(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant()
+            .Replace(" ", "-")
+            .Replace("_", "-");
+
+        return new string(normalized
+            .Where(ch => char.IsLetterOrDigit(ch) || ch == '-')
+            .ToArray());
     }
 
     private static bool ShouldReviewSegment(Segment segment)
