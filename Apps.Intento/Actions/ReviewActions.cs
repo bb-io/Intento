@@ -238,10 +238,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         var finalizedSegmentsCount = 0;
         var underThresholdCount = 0;
         double totalScore = 0.0;
-        var openAiResults = new List<object>();
-        var ruleBasedResults = new List<object>();
-        var recordedOpenAiKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var recordedRuleBasedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var recordedNotes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var record in segmentRecords)
@@ -255,18 +251,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
             if (evaluation.Details?.OpenAiResults != null)
             {
-                if (recordedOpenAiKeys.Add(record.ExternalKey))
-                {
-                    openAiResults.Add(new
-                    {
-                        record.ExternalKey,
-                        Score = evaluation.Details.OpenAiResults["score"],
-                        ScoreType = evaluation.Details.OpenAiResults["scoreType"],
-                        Content = evaluation.Details.OpenAiResults["content"],
-                        CorrectTranslation = evaluation.Details.OpenAiResults["correctTranslation"]
-                    });
-                }
-
                 AddIntentoNotes(
                     record.Unit,
                     evaluation.Details.OpenAiResults["content"]?["errors"] as JArray,
@@ -276,17 +260,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
             if (evaluation.Details?.RuleBasedResults != null)
             {
-                if (recordedRuleBasedKeys.Add(record.ExternalKey))
-                {
-                    ruleBasedResults.Add(new
-                    {
-                        record.ExternalKey,
-                        Score = evaluation.Details.RuleBasedResults["score"],
-                        ScoreType = evaluation.Details.RuleBasedResults["scoreType"],
-                        Content = evaluation.Details.RuleBasedResults["content"]
-                    });
-                }
-
                 AddIntentoNotes(
                     record.Unit,
                     evaluation.Details.RuleBasedResults["content"] as JArray,
@@ -329,9 +302,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             TotalSegmentsFinalized = finalizedSegmentsCount,
             TotalSegmentsUnderThreshhold = underThresholdCount,
             AverageMetric = avgMetric,
-            PercentageSegmentsUnderThreshhold = pctUnder,
-            OpenAiResultsJson = JsonConvert.SerializeObject(openAiResults, Formatting.Indented),
-            RuleBasedResultsJson = JsonConvert.SerializeObject(ruleBasedResults, Formatting.Indented)
+            PercentageSegmentsUnderThreshhold = pctUnder
         };
     }
 
