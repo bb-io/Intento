@@ -1,4 +1,5 @@
-﻿using Apps.Intento.Actions;
+using Apps.Intento.Actions;
+using Blackbird.Applications.Sdk.Common.Files;
 using Tests.Intento.Base;
 
 namespace Tests.Intento;
@@ -16,7 +17,6 @@ public class ReviewActionTests : TestBase
             SourceText = "Hello, world!",
             TargetText = "¡Hola, mundo!",
             TargetLanguage = "es",
-            //ScoreThreshold = 0.8
         });
         Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(result));
         Assert.IsNotNull(result);
@@ -30,10 +30,30 @@ public class ReviewActionTests : TestBase
         {
             Model = "labse",
             TargetLanguage = "es",
-            //ScoreThreshold = 0.8
+            File = new FileReference
+            {
+                Name = "taus.xliff"
+            }
+        });
+        Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(result));
+        Assert.IsNotNull(result);
+    }
+
+    [TestMethod]
+    public async Task IntentoLQA_IsSuccess()
+    {
+        var action = new ReviewActions(InvocationContext, FileManager);
+
+        var result = await action.ReviewFileWithIntentoLqa(new Apps.Intento.Model.Request.ReviewFileWithIntentoLqaRequest
+        {
+            TargetLanguage = "es",
+            ScoreThreshold = 0.8,
+            File = new FileReference
+            {
+                Name = "taus_test.xliff"
+            }
         });
         Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(result));
         Assert.IsNotNull(result);
     }
 }
-
