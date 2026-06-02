@@ -24,6 +24,10 @@ namespace Apps.Intento.Actions;
 public class ReviewActions(InvocationContext invocationContext, IFileManagementClient fileManagement)
     : IntentoInvocable(invocationContext)
 {
+    private const int IntentoLqaActionBatchSize = 25;
+    private const int IntentoLqaJobPollAttempts = 24;
+    private const int IntentoLqaEvaluationPollAttempts = 12;
+    private static readonly TimeSpan IntentoLqaPollInterval = TimeSpan.FromSeconds(5);
     private const string IntentoLqaActionId = "674f27c0d4496a22fb664db8";
 
     [BlueprintActionDefinition(BlueprintAction.ReviewText)]
@@ -219,20 +223,71 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         var sourceLanguage = content.SourceLanguage!;
         var targetLanguage = content.TargetLanguage!;
-        const string operationPath = "https://blackbird.io";
 
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(input.File.Name);
+        if (string.IsNullOrWhiteSpace(fileNameWithoutExtension))
+        fileNameWithoutExtension = "file";
+
+        var runId = $"{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}";
+        string operationPath = $"https://blackbird.io/{runId}/intento-lqa/{fileNameWithoutExtension}";
+        Console.WriteLine($"Intento operationPath: {operationPath}");
         var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage, operationPath);
         if (!segmentRecords.Any())
             throw new PluginApplicationException("No reviewable segments were found in the file.");
 
         await StoreSegments(segmentRecords);
-        await WaitForStoredSegmentsReady(targetLanguage, sourceLanguage, segmentRecords, operationPath);
+        Console.WriteLine($"Intento stored segments: {segmentRecords.Count}");
 
         var actionId = IntentoLqaActionId;
-        var jobId = await RunIntentoLqaAction(actionId, targetLanguage, segmentRecords.Select(x => x.SearchKey).ToList(), operationPath);
-        await WaitForIntentoLqaJob(jobId);
+        var expectedSearchKeys = segmentRecords
+            .Select(x => x.SearchKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        var evaluations = await FetchIntentoLqaEvaluations(targetLanguage, sourceLanguage, segmentRecords, operationPath);
+        var evaluations = new Dictionary<string, SearchSegmentEvaluationDto>(StringComparer.OrdinalIgnoreCase);
+        var searchKeyBatches = expectedSearchKeys
+            .Chunk(IntentoLqaActionBatchSize)
+            .Select(x => x.ToList())
+            .ToList();
+
+        Console.WriteLine(
+            $"Intento running LQA action in {searchKeyBatches.Count} batch(es) for {expectedSearchKeys.Count} search keys");
+
+        for (var batchIndex = 0; batchIndex < searchKeyBatches.Count; batchIndex++)
+        {
+            var batchSearchKeys = searchKeyBatches[batchIndex];
+            var batchSearchKeySet = batchSearchKeys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var batchRecords = segmentRecords
+                .Where(x => batchSearchKeySet.Contains(x.SearchKey))
+                .ToList();
+
+            Console.WriteLine(
+                $"Intento LQA batch {batchIndex + 1}/{searchKeyBatches.Count}: running action for {batchSearchKeys.Count} search keys");
+            var jobId = await RunIntentoLqaAction(actionId, targetLanguage, batchSearchKeys, operationPath);
+            Console.WriteLine($"Intento LQA batch {batchIndex + 1}/{searchKeyBatches.Count} jobId: {jobId}");
+            var jobStatus = await WaitForIntentoLqaJob(jobId);
+
+            Console.WriteLine(
+                $"Intento LQA batch {batchIndex + 1}/{searchKeyBatches.Count} completed, fetching evaluations");
+            var batchEvaluations = await FetchEvaluationsWithSingleRetry(
+                actionId,
+                targetLanguage,
+                sourceLanguage,
+                operationPath,
+                batchRecords,
+                batchSearchKeys,
+                jobStatus);
+
+            foreach (var evaluation in batchEvaluations)
+            {
+                evaluations[evaluation.Key] = evaluation.Value;
+            }
+
+            Console.WriteLine(
+                $"Intento LQA batch {batchIndex + 1}/{searchKeyBatches.Count} fetched evaluations: {batchEvaluations.Count}");
+        }
+
+        Console.WriteLine($"Intento fetched evaluations: {evaluations.Count}");
 
         var processedSegmentsCount = 0;
         var finalizedSegmentsCount = 0;
@@ -242,7 +297,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         foreach (var record in segmentRecords)
         {
-            if (!evaluations.TryGetValue(record.ExternalKey, out var evaluation) || evaluation.Score == null)
+            if (!evaluations.TryGetValue(record.SearchKey, out var evaluation) || evaluation.Score == null)
                 continue;
 
             var normalizedScore = NormalizeIntentoScore(evaluation.Score.Value);
@@ -571,16 +626,24 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             $"Intento LQA stored segments were not visible in storage search. Expected {expectedKeys.Count} keys, found {storedSegments.Count} segments.");
     }
 
-    private async Task WaitForIntentoLqaJob(string jobId)
+    private async Task<StorageActionStatusResponseDto> WaitForIntentoLqaJob(string jobId)
     {
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < IntentoLqaJobPollAttempts; i++)
         {
             var request = new RestRequest($"/storage/action/status/{jobId}", Method.Get);
             var status = await Client.ExecuteWithErrorHandling<StorageActionStatusResponseDto>(request);
 
+            if (i == 0 || (i + 1) % 5 == 0)
+            {
+                var completedCount = status.Results?.Completed?.Count ?? 0;
+                var failedCount = status.Results?.Failed?.Count ?? 0;
+                Console.WriteLine(
+                    $"Intento LQA job poll {i + 1}: status={status.Status ?? "null"}, progress={status.Progress?.ToString() ?? "null"}, completed={completedCount}, failed={failedCount}");
+            }
+
             if (string.Equals(status.Status, "success", StringComparison.OrdinalIgnoreCase))
             {
-                return;
+                return status;
             }
 
             if (string.Equals(status.Status, "failed", StringComparison.OrdinalIgnoreCase))
@@ -593,6 +656,38 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         throw new PluginApplicationException("Intento LQA job polling timed out.");
     }
 
+    private async Task<Dictionary<string, SearchSegmentEvaluationDto>> FetchEvaluationsWithSingleRetry(
+        string actionId,
+        string targetLanguage,
+        string sourceLanguage,
+        string operationPath,
+        List<IntentoLqaSegmentRecord> records,
+        List<string> expectedSearchKeys,
+        StorageActionStatusResponseDto jobStatus)
+    {
+        try
+        {
+            return await FetchIntentoLqaEvaluations(targetLanguage, sourceLanguage, records, operationPath);
+        }
+        catch (PluginApplicationException ex) when (ShouldRetryEmptyEvaluationMaterialization(jobStatus, ex))
+        {
+            Console.WriteLine(
+                "Intento returned success with completed=0 and failed=0, but no evaluations materialized. Retrying LQA action once.");
+
+            var retryJobId = await RunIntentoLqaAction(actionId, targetLanguage, expectedSearchKeys, operationPath);
+            Console.WriteLine($"Intento LQA retry jobId: {retryJobId}");
+            var retryStatus = await WaitForIntentoLqaJob(retryJobId);
+
+            if (HasZeroCompletedAndFailed(retryStatus))
+            {
+                Console.WriteLine(
+                    "Intento LQA retry also returned success with completed=0 and failed=0. Fetching evaluations one final time.");
+            }
+
+            return await FetchIntentoLqaEvaluations(targetLanguage, sourceLanguage, records, operationPath);
+        }
+    }
+
     private async Task<Dictionary<string, SearchSegmentEvaluationDto>> FetchIntentoLqaEvaluations(
         string targetLanguage,
         string sourceLanguage,
@@ -600,38 +695,84 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         string operationPath)
     {
         var expectedKeys = records
-            .Select(x => x.ExternalKey)
+            .Select(x => x.SearchKey)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Dictionary<string, SearchSegmentEvaluationDto> evaluations = new(StringComparer.OrdinalIgnoreCase);
 
-        for (var attempt = 0; attempt < 60; attempt++)
+        for (var attempt = 0; attempt < IntentoLqaEvaluationPollAttempts; attempt++)
         {
             evaluations = new Dictionary<string, SearchSegmentEvaluationDto>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var record in records)
             {
-                var item = await SearchSegmentByExternalKey(
+                var item = await SearchSegmentByExternalKeyAndSearchKey(
                     targetLanguage,
                     sourceLanguage,
                     operationPath,
-                    record.ExternalKey);
+                    record.ExternalKey,
+                    record.SearchKey);
 
                 if (item?.Evaluation != null)
                 {
-                    evaluations[record.ExternalKey] = item.Evaluation;
+                    evaluations[record.SearchKey] = item.Evaluation;
                 }
             }
 
             if (evaluations.Keys.Count(expectedKeys.Contains) == expectedKeys.Count)
                 return evaluations;
 
-            await Task.Delay(TimeSpan.FromSeconds(1));
+            if (attempt == 0 || (attempt + 1) % 5 == 0)
+            {
+                Console.WriteLine(
+                    $"Intento evaluation fetch poll {attempt + 1}: found {evaluations.Count} of {expectedKeys.Count} evaluations");
+            }
+
+            await Task.Delay(IntentoLqaPollInterval);
         }
 
         throw new PluginApplicationException(
             $"Intento LQA evaluations were not materialized in storage after job success. Expected {expectedKeys.Count} keys, found {evaluations.Count} evaluations.");
+    }
+
+    private static bool ShouldRetryEmptyEvaluationMaterialization(
+        StorageActionStatusResponseDto status,
+        PluginApplicationException ex)
+    {
+        return HasZeroCompletedAndFailed(status)
+            && ex.Message.Contains(
+                "Intento LQA evaluations were not materialized in storage after job success",
+                StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasZeroCompletedAndFailed(StorageActionStatusResponseDto status)
+    {
+        var completedCount = status.Results?.Completed?.Count ?? 0;
+        var failedCount = status.Results?.Failed?.Count ?? 0;
+        return string.Equals(status.Status, "success", StringComparison.OrdinalIgnoreCase)
+            && completedCount == 0
+            && failedCount == 0;
+    }
+
+    private async Task<SearchSegmentItemDto?> SearchSegmentByExternalKeyAndSearchKey(
+        string targetLanguage,
+        string sourceLanguage,
+        string operationPath,
+        string externalKey,
+        string searchKey)
+    {
+        var request = new RestRequest($"/storage/segment/{targetLanguage}/search", Method.Get);
+        request.AddHeader("x-storage-path", operationPath);
+        request.AddQueryParameter("limit", "50");
+        request.AddQueryParameter("from", sourceLanguage);
+        request.AddQueryParameter("type", "ht");
+        request.AddQueryParameter("textSearchMode", "external-key");
+        request.AddQueryParameter("keywords", externalKey);
+
+        var response = await Client.ExecuteWithErrorHandling<SearchSegmentsResponseDto>(request);
+        return response.Items?
+            .FirstOrDefault(x => string.Equals(x.SearchKey, searchKey, StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task<SearchSegmentItemDto?> SearchSegmentByExternalKey(

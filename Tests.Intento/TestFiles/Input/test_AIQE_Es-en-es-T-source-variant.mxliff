@@ -1,0 +1,167 @@
+<?xml version='1.0' encoding='UTF-8'?><xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" xmlns:m="http://www.memsource.com/mxlf/2.0" version="1.2" m:version="2.16" m:level="1">
+<file original="test_AIQE_Es.xlsx" source-language="en" target-language="es" datatype="x-undefined" m:file-format="XLS" m:task-id="Nwj7jF3Ws0mfb63R0_dc9" m:begin-group-id="0" m:end-group-id="5" m:transmem-ignore-tag-metadata="yes" m:project-uid="uDrdlRnegjFza9S2koEAl1" m:job-uid="pGjFW8pTIibD8xIFzCxtr0">
+<header>
+<m:in-ctx-preview-skel bilingual="false">
+<![CDATA[<html><head>
+<style>
+tr    {height: 20px;}
+tr.hidden {height: 0px;}
+tr.hidden td {padding: 0px; border-top: none; border-bottom: none;}
+th.hidden, td.hidden {width: 0px; padding: 0px;}
+.hidden_text {font-size: 0px; border-right: none;}
+table   {border: 1px solid black; border-top: none; border-left: none; border-collapse: collapse;}
+td   {border: 1px solid black; border-left: none;}
+th   {border: 1px solid black; border-top: none; border-left: none;}
+table td:first-child {text-align: center;}
+.comment {background-color: yellow; box-shadow: 2px 2px grey; margin: 3px}
+td.hidden_text .comment {margin: 0px}
+.S1 {}
+.S1Font {font-family: Arial; font-size: 11pt; color: #000000}
+</style><meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+<meta charset="UTF-8">
+</head><body><div style="font-weight: bold;">Sheet1</div><br><table>
+<tr><th></th><th style="min-width:210px">A</th><th style="min-width:64px">B</th><th style="min-width:64px">C</th><th style="min-width:64px">D</th><th style="min-width:64px">E</th><th style="min-width:64px">F</th><th style="min-width:64px">G</th><th style="min-width:64px">H</th><th style="min-width:64px">I</th><th style="min-width:64px">J</th><th style="min-width:64px">K</th><th style="min-width:64px">L</th><th style="min-width:64px">M</th><th style="min-width:64px">N</th><th style="min-width:64px">O</th></tr>
+<tr><td>1</td><td class="S1Font S1" title="A:1"><span id="m-tgroup_0" class="m-tgroup"></span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>2</td><td class="S1Font S1" title="A:2"><span id="m-tgroup_1" class="m-tgroup"></span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>3</td><td class="S1Font S1" title="A:3"><span id="m-tgroup_2" class="m-tgroup"></span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>4</td><td class="S1Font S1" title="A:4"><span id="m-tgroup_3" class="m-tgroup"></span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>5</td><td class="S1Font S1" title="A:5"><span id="m-tgroup_4" class="m-tgroup"></span> <span id="m-tgroup_5" class="m-tgroup"></span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>6</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>7</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>8</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>9</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>10</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>11</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>12</td><td></td><td></td]]><![CDATA[><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></]]><![CDATA[td><td></td><td></td><td></td></tr>
+<tr><td>13</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>14</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>15</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>16</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>17</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>18</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>19</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>20</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>21</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>22</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>23</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>24</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>25</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>26</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>27</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>28</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>29</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>30</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table><br><hr><br></body></html>]]>
+</m:in-ctx-preview-skel>
+</header>
+<body>
+
+<group id="0" m:para-id="3-tu1">
+<context-group>
+<context context-type="x-file-part">xl/sharedStrings.xml</context>
+</context-group>
+<trans-unit id="Nwj7jF3Ws0mfb63R0_dc9:0" xml:space="preserve" m:score="0.88" m:gross-score="0.88" m:trans-origin="mt" m:trans-origin-detail="qps_v4_2025-06-05" m:confirmed="0" m:locked="false" m:para-id="3-tu1" m:created-at="1780008352479" m:created-by="1732186" m:modified-at="1780008352479" m:modified-by="1732186" m:level-edited="false">
+<source>Jobs that meet all of the following criteria are automatically eligible to be posted on Indeed PLUS. TEST</source>
+<target>Los empleos que cumplan todos los siguientes criterios son automГЎticamente elegibles para ser publicados en Indeed PLUS.</target>
+<alt-trans origin="machine-trans" match-quality="0.88" m:mt-id="5105995"><target>Los empleos que cumplan todos los siguientes criterios son automГЎticamente elegibles para ser publicados en Indeed PLUS.</target></alt-trans>
+<alt-trans origin="memsource-tm"><target/></alt-trans>
+<m:latest-trans-props>
+  <m:trans-prop name="score">0.88</m:trans-prop>
+  <m:trans-prop name="gross-score">0.88</m:trans-prop>
+  <m:trans-prop name="origin">mt</m:trans-prop>
+  <m:trans-prop name="origin-detail">qps_v4_2025-06-05</m:trans-prop>
+</m:latest-trans-props>
+</trans-unit>
+</group>
+<group id="1" m:para-id="3-tu2">
+<context-group>
+<context context-type="x-file-part">xl/sharedStrings.xml</context>
+</context-group>
+<trans-unit id="Nwj7jF3Ws0mfb63R0_dc9:1" xml:space="preserve" m:score="0.78" m:gross-score="0.78" m:trans-origin="mt" m:trans-origin-detail="qps_v4_2025-06-05" m:confirmed="0" m:locked="false" m:para-id="3-tu2" m:created-at="1780008352479" m:created-by="1732186" m:modified-at="1780008352479" m:modified-by="1732186" m:level-edited="false">
+<source>Meets Indeed PLUS posting criteria TEST</source>
+<target>Cumple los criterios de publicaciГіn de Indeed PLUS</target>
+<alt-trans origin="machine-trans" match-quality="0.78" m:mt-id="5105995"><target>Cumple los criterios de publicaciГіn de Indeed PLUS</target></alt-trans>
+<alt-trans origin="memsource-tm"><target/></alt-trans>
+<m:latest-trans-props>
+  <m:trans-prop name="score">0.78</m:trans-prop>
+  <m:trans-prop name="gross-score">0.78</m:trans-prop>
+  <m:trans-prop name="origin">mt</m:trans-prop>
+  <m:trans-prop name="origin-detail">qps_v4_2025-06-05</m:trans-prop>
+</m:latest-trans-props>
+</trans-unit>
+</group>
+<group id="2" m:para-id="3-tu3">
+<context-group>
+<context context-type="x-file-part">xl/sharedStrings.xml</context>
+</context-group>
+<trans-unit id="Nwj7jF3Ws0mfb63R0_dc9:2" xml:space="preserve" m:score="0.87" m:gross-score="0.87" m:trans-origin="mt" m:trans-origin-detail="qps_v4_2025-06-05" m:confirmed="0" m:locked="false" m:para-id="3-tu3" m:created-at="1780008352479" m:created-by="1732186" m:modified-at="1780008352479" m:modified-by="1732186" m:level-edited="false">
+<source>Notes on using Indeed PLUS TEST</source>
+<target>Notas sobre el uso de Indeed PLUS</target>
+<alt-trans origin="machine-trans" match-quality="0.87" m:mt-id="5105995"><target>Notas sobre el uso de Indeed PLUS</target></alt-trans>
+<alt-trans origin="memsource-tm"><target/></alt-trans>
+<m:latest-trans-props>
+  <m:trans-prop name="score">0.87</m:trans-prop>
+  <m:trans-prop name="gross-score">0.87</m:trans-prop>
+  <m:trans-prop name="origin">mt</m:trans-prop>
+  <m:trans-prop name="origin-detail">qps_v4_2025-06-05</m:trans-prop>
+</m:latest-trans-props>
+</trans-unit>
+</group>
+<group id="3" m:para-id="3-tu4">
+<context-group>
+<context context-type="x-file-part">xl/sharedStrings.xml</context>
+</context-group>
+<trans-unit id="Nwj7jF3Ws0mfb63R0_dc9:3" xml:space="preserve" m:score="0.88" m:gross-score="0.88" m:trans-origin="mt" m:trans-origin-detail="qps_v4_2025-06-05" m:confirmed="0" m:locked="false" m:para-id="3-tu4" m:created-at="1780008352479" m:created-by="1732186" m:modified-at="1780008352479" m:modified-by="1732186" m:level-edited="false">
+<source>Other requirements are met by Indeed's terms of use, job posting criteria, and policies TEST</source>
+<target>Otros requisitos se cumplen con los tГ©rminos de uso, los criterios de oferta de empleo y las polГ­ticas de Indeed.</target>
+<alt-trans origin="machine-trans" match-quality="0.88" m:mt-id="5105995"><target>Otros requisitos se cumplen con los tГ©rminos de uso, los criterios de oferta de empleo y las polГ­ticas de Indeed.</target></alt-trans>
+<alt-trans origin="memsource-tm"><target/></alt-trans>
+<m:latest-trans-props>
+  <m:trans-prop name="score">0.88</m:trans-prop>
+  <m:trans-prop name="gross-score">0.88</m:trans-prop>
+  <m:trans-prop name="origin">mt</m:trans-prop>
+  <m:trans-prop name="origin-detail">qps_v4_2025-06-05</m:trans-prop>
+</m:latest-trans-props>
+</trans-unit>
+</group>
+<group id="4" m:para-id="3-tu5">
+<context-group>
+<context context-type="x-file-part">xl/sharedStrings.xml</context>
+</context-group>
+<trans-unit id="Nwj7jF3Ws0mfb63R0_dc9:4" xml:space="preserve" m:score="0.91" m:gross-score="0.91" m:trans-origin="mt" m:trans-origin-detail="qps_v4_2025-06-05" m:confirmed="0" m:locked="false" m:para-id="3-tu5" m:created-at="1780008352479" m:created-by="1732186" m:modified-at="1780008352479" m:modified-by="1732186" m:level-edited="false">
+<source>Previously set campaign goals are not carried over to the plan. TEST</source>
+<target>Los objetivos de campaГ±a previamente establecidos no se trasladan al plan.</target>
+<alt-trans origin="machine-trans" match-quality="0.91" m:mt-id="5105995"><target>Los objetivos de campaГ±a previamente establecidos no se trasladan al plan.</target></alt-trans>
+<alt-trans origin="memsource-tm"><target/></alt-trans>
+<m:latest-trans-props>
+  <m:trans-prop name="score">0.91</m:trans-prop>
+  <m:trans-prop name="gross-score">0.91</m:trans-prop>
+  <m:trans-prop name="origin">mt</m:trans-prop>
+  <m:trans-prop name="origin-detail">qps_v4_2025-06-05</m:trans-prop>
+</m:latest-trans-props>
+</trans-unit>
+</group>
+<group id="5" m:para-id="3-tu5">
+<context-group>
+<context context-type="x-file-part">xl/sharedStrings.xml</context>
+</context-group>
+<trans-unit id="Nwj7jF3Ws0mfb63R0_dc9:5" xml:space="preserve" m:score="0.92" m:gross-score="0.92" m:trans-origin="mt" m:trans-origin-detail="qps_v4_2025-06-05" m:confirmed="0" m:locked="false" m:para-id="3-tu5" m:created-at="1780008352479" m:created-by="1732186" m:modified-at="1780008352479" m:modified-by="1732186" m:level-edited="false">
+<source>The total budget is allocated as individual daily budgets to each job within the campaign. TEST</source>
+<target>El presupuesto total se asigna como presupuestos diarios individuales para cada trabajo dentro de la campaГ±a.</target>
+<alt-trans origin="machine-trans" match-quality="0.92" m:mt-id="5105995"><target>El presupuesto total se asigna como presupuestos diarios individuales para cada trabajo dentro de la campaГ±a.</target></alt-trans>
+<alt-trans origin="memsource-tm"><target/></alt-trans>
+<m:latest-trans-props>
+  <m:trans-prop name="score">0.92</m:trans-prop>
+  <m:trans-prop name="gross-score">0.92</m:trans-prop>
+  <m:trans-prop name="origin">mt</m:trans-prop>
+  <m:trans-prop name="origin-detail">qps_v4_2025-06-05</m:trans-prop>
+</m:latest-trans-props>
+</trans-unit>
+</group>
+</body>
+</file>
+<m:extra>
+<m:users>
+<m:user id="1732186" uid="xdhlcxmlTcop89QQF4AGN0" username="alex.terekhov@blackbird.io" fullname="Alex Terekhov"/>
+</m:users>
+</m:extra>
+</xliff>
