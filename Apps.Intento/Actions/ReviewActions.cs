@@ -230,13 +230,11 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         var runId = $"{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}";
         string operationPath = $"https://blackbird.io/{runId}/intento-lqa/{fileNameWithoutExtension}";
-        Console.WriteLine($"Intento operationPath: {operationPath}");
         var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage, operationPath);
         if (!segmentRecords.Any())
             throw new PluginApplicationException("No reviewable segments were found in the file.");
 
         await StoreSegments(segmentRecords);
-        Console.WriteLine($"Intento stored segments: {segmentRecords.Count}");
 
         var actionId = IntentoLqaActionId;
         var expectedSearchKeys = segmentRecords
@@ -250,9 +248,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             .Select(x => x.ToList())
             .ToList();
 
-        Console.WriteLine(
-            $"Intento running LQA action in {searchKeyBatches.Count} batch(es) for {expectedSearchKeys.Count} search keys");
-
         for (var batchIndex = 0; batchIndex < searchKeyBatches.Count; batchIndex++)
         {
             var batchSearchKeys = searchKeyBatches[batchIndex];
@@ -261,14 +256,9 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                 .Where(x => batchSearchKeySet.Contains(x.SearchKey))
                 .ToList();
 
-            Console.WriteLine(
-                $"Intento LQA batch {batchIndex + 1}/{searchKeyBatches.Count}: running action for {batchSearchKeys.Count} search keys");
             var jobId = await RunIntentoLqaAction(actionId, targetLanguage, batchSearchKeys, operationPath);
-            Console.WriteLine($"Intento LQA batch {batchIndex + 1}/{searchKeyBatches.Count} jobId: {jobId}");
             var jobStatus = await WaitForIntentoLqaJob(jobId);
 
-            Console.WriteLine(
-                $"Intento LQA batch {batchIndex + 1}/{searchKeyBatches.Count} completed, fetching evaluations");
             var batchEvaluations = await FetchEvaluationsWithSingleRetry(
                 actionId,
                 targetLanguage,
@@ -282,12 +272,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             {
                 evaluations[evaluation.Key] = evaluation.Value;
             }
-
-            Console.WriteLine(
-                $"Intento LQA batch {batchIndex + 1}/{searchKeyBatches.Count} fetched evaluations: {batchEvaluations.Count}");
         }
-
-        Console.WriteLine($"Intento fetched evaluations: {evaluations.Count}");
 
         var processedSegmentsCount = 0;
         var finalizedSegmentsCount = 0;
@@ -633,14 +618,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             var request = new RestRequest($"/storage/action/status/{jobId}", Method.Get);
             var status = await Client.ExecuteWithErrorHandling<StorageActionStatusResponseDto>(request);
 
-            if (i == 0 || (i + 1) % 5 == 0)
-            {
-                var completedCount = status.Results?.Completed?.Count ?? 0;
-                var failedCount = status.Results?.Failed?.Count ?? 0;
-                Console.WriteLine(
-                    $"Intento LQA job poll {i + 1}: status={status.Status ?? "null"}, progress={status.Progress?.ToString() ?? "null"}, completed={completedCount}, failed={failedCount}");
-            }
-
             if (string.Equals(status.Status, "success", StringComparison.OrdinalIgnoreCase))
             {
                 return status;
@@ -671,18 +648,8 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         }
         catch (PluginApplicationException ex) when (ShouldRetryEmptyEvaluationMaterialization(jobStatus, ex))
         {
-            Console.WriteLine(
-                "Intento returned success with completed=0 and failed=0, but no evaluations materialized. Retrying LQA action once.");
-
             var retryJobId = await RunIntentoLqaAction(actionId, targetLanguage, expectedSearchKeys, operationPath);
-            Console.WriteLine($"Intento LQA retry jobId: {retryJobId}");
             var retryStatus = await WaitForIntentoLqaJob(retryJobId);
-
-            if (HasZeroCompletedAndFailed(retryStatus))
-            {
-                Console.WriteLine(
-                    "Intento LQA retry also returned success with completed=0 and failed=0. Fetching evaluations one final time.");
-            }
 
             return await FetchIntentoLqaEvaluations(targetLanguage, sourceLanguage, records, operationPath);
         }
@@ -722,12 +689,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
             if (evaluations.Keys.Count(expectedKeys.Contains) == expectedKeys.Count)
                 return evaluations;
-
-            if (attempt == 0 || (attempt + 1) % 5 == 0)
-            {
-                Console.WriteLine(
-                    $"Intento evaluation fetch poll {attempt + 1}: found {evaluations.Count} of {expectedKeys.Count} evaluations");
-            }
 
             await Task.Delay(IntentoLqaPollInterval);
         }
