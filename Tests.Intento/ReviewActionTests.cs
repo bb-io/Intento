@@ -50,7 +50,27 @@ public class ReviewActionTests : TestBase
             ScoreThreshold = 0.8,
             File = new FileReference
             {
-                Name = "taus_test.xliff"
+                Name = "test_AIQE_Es-en-es-T.mxliff"
+                //Name = "test_AIQE_Es-en-es-T-source-variant.mxliff"
+                //Name = "demo.docx.xlf"
+            }
+        });
+        Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(result));
+        Assert.IsNotNull(result);
+    }
+
+    [TestMethod]
+    public async Task IntentoLQA_SourceVariant_IsSuccess()
+    {
+        var action = new ReviewActions(InvocationContext, FileManager);
+
+        var result = await action.ReviewFileWithIntentoLqa(new Apps.Intento.Model.Request.ReviewFileWithIntentoLqaRequest
+        {
+            TargetLanguage = "es",
+            ScoreThreshold = 0.8,
+            File = new FileReference
+            {
+                Name = "test_AIQE_Es-en-es-T-source-variant.mxliff"
             }
         });
         Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(result));
