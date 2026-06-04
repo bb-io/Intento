@@ -88,8 +88,11 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         using var stream = await fileManagement.DownloadAsync(input.File);
         var content = await Transformation.Parse(stream, input.File.Name);
 
-        content.SourceLanguage ??= input.SourceLanguage;
-        content.TargetLanguage ??= input.TargetLanguage;
+        if (!string.IsNullOrWhiteSpace(input.SourceLanguage))
+            content.SourceLanguage = input.SourceLanguage;
+
+        if (!string.IsNullOrWhiteSpace(input.TargetLanguage))
+            content.TargetLanguage = input.TargetLanguage;
 
         if (string.IsNullOrWhiteSpace(content.SourceLanguage))
             throw new PluginMisconfigurationException("Source language is not defined. Provide Source language.");
@@ -212,8 +215,11 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         using var stream = await fileManagement.DownloadAsync(input.File);
         var content = await Transformation.Parse(stream, input.File.Name);
 
-        content.SourceLanguage ??= input.SourceLanguage;
-        content.TargetLanguage ??= input.TargetLanguage;
+        if (!string.IsNullOrWhiteSpace(input.SourceLanguage))
+            content.SourceLanguage = input.SourceLanguage;
+
+        if (!string.IsNullOrWhiteSpace(input.TargetLanguage))
+            content.TargetLanguage = input.TargetLanguage;
 
         if (string.IsNullOrWhiteSpace(content.SourceLanguage))
             throw new PluginMisconfigurationException("Source language is not defined. Provide Source language.");

@@ -46,13 +46,13 @@ public class ReviewActionTests : TestBase
 
         var result = await action.ReviewFileWithIntentoLqa(new Apps.Intento.Model.Request.ReviewFileWithIntentoLqaRequest
         {
-            TargetLanguage = "es",
+            TargetLanguage = "de",
             ScoreThreshold = 0.8,
             File = new FileReference
             {
-                //Name = "test_AIQE_Es-en-es-T.mxliff"
-                Name = "test_AIQE_Es-en-es-T-source-variant.mxliff"
-                //Name = "demo.docx.xlf"
+                Name = "test_AIQE_Es-en-es-T.mxliff"
+                //Name = "test_AIQE_Es-en-es-T-source-variant.mxliff"
+                //Name = "demo.docx_test.xlf"
             }
         });
         Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(result));
