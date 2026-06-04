@@ -25,10 +25,10 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     : IntentoInvocable(invocationContext)
 {
     private const int IntentoLqaActionBatchSize = 25;
-    private const int IntentoLqaJobPollAttempts = 24;
-    private const int IntentoLqaEvaluationPollAttempts = 12;
-    private static readonly TimeSpan IntentoLqaPollInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan IntentoLqaJobPollInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan IntentoLqaEvaluationPollInterval = TimeSpan.FromSeconds(5);
     private const string IntentoLqaActionId = "674f27c0d4496a22fb664db8";
+    private const string IntentoLqaStoragePath = "https://blackbird.io";
 
     [BlueprintActionDefinition(BlueprintAction.ReviewText)]
     [Action("Review text", Description = "Review translation quality for source and target text using IntentoQA")]
@@ -224,17 +224,13 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         var sourceLanguage = content.SourceLanguage!;
         var targetLanguage = content.TargetLanguage!;
 
-        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(input.File.Name);
-        if (string.IsNullOrWhiteSpace(fileNameWithoutExtension))
-        fileNameWithoutExtension = "file";
-
-        var runId = $"{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}";
-        string operationPath = $"https://blackbird.io/{runId}/intento-lqa/{fileNameWithoutExtension}";
-        var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage, operationPath);
+        var operationPath = IntentoLqaStoragePath;
+        var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage);
         if (!segmentRecords.Any())
             throw new PluginApplicationException("No reviewable segments were found in the file.");
 
-        await StoreSegments(segmentRecords);
+        await StoreSegments(segmentRecords, operationPath);
+        await WaitForStoredSegmentsReady(targetLanguage, sourceLanguage, segmentRecords, operationPath);
 
         var actionId = IntentoLqaActionId;
         var expectedSearchKeys = segmentRecords
@@ -463,11 +459,9 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     private List<IntentoLqaSegmentRecord> BuildIntentoLqaSegmentRecords(
         Transformation content,
         string sourceLanguage,
-        string targetLanguage,
-        string operationPath)
+        string targetLanguage)
     {
         var records = new List<IntentoLqaSegmentRecord>();
-        var seenExternalKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var units = content.GetUnits().ToList();
 
         for (var unitIndex = 0; unitIndex < units.Count; unitIndex++)
@@ -484,10 +478,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                 if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(target))
                     continue;
 
-                var externalKey = BuildExternalKey(unit, unitIndex, segmentIndex);
-                if (!seenExternalKeys.Add(externalKey))
-                    continue;
-
                 records.Add(new IntentoLqaSegmentRecord
                 {
                     Unit = unit,
@@ -495,10 +485,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                     SourceText = source,
                     TargetText = target,
                     SourceLanguage = sourceLanguage,
-                    TargetLanguage = targetLanguage,
-                    ExternalKey = externalKey,
-                    SearchKey = CreateSearchKey(source),
-                    Path = operationPath
+                    TargetLanguage = targetLanguage
                 });
             }
         }
@@ -506,7 +493,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         return records;
     }
 
-    private async Task StoreSegments(List<IntentoLqaSegmentRecord> records)
+    private async Task StoreSegments(List<IntentoLqaSegmentRecord> records, string operationPath)
     {
         foreach (var batch in records.Chunk(25))
         {
@@ -521,11 +508,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                     ["target"] = record.TargetText,
                     ["type"] = "ht",
                     ["origin"] = "Blackbird",
-                    ["meta"] = new JObject
-                    {
-                        ["externalKey"] = record.ExternalKey
-                    },
-                    ["path"] = record.Path
+                    ["path"] = operationPath
                 }))
             };
 
@@ -577,7 +560,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         string operationPath)
     {
         var expectedKeys = records
-            .Select(x => x.ExternalKey)
+            .Select(x => x.SearchKey)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -586,19 +569,11 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         for (var attempt = 0; attempt < 60; attempt++)
         {
             storedSegments = new Dictionary<string, SearchSegmentItemDto>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var record in records)
+            var items = await GetSegmentsBySearchKeys(targetLanguage, sourceLanguage, operationPath, expectedKeys);
+            foreach (var item in items)
             {
-                var item = await SearchSegmentByExternalKey(
-                    targetLanguage,
-                    sourceLanguage,
-                    operationPath,
-                    record.ExternalKey);
-
-                if (item != null)
-                {
-                    storedSegments[record.ExternalKey] = item;
-                }
+                if (!string.IsNullOrWhiteSpace(item.SearchKey))
+                    storedSegments[item.SearchKey] = item;
             }
 
             if (storedSegments.Keys.Count(expectedKeys.Contains) == expectedKeys.Count)
@@ -613,7 +588,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
     private async Task<StorageActionStatusResponseDto> WaitForIntentoLqaJob(string jobId)
     {
-        for (var i = 0; i < IntentoLqaJobPollAttempts; i++)
+        for (var i = 0; ; i++)
         {
             var request = new RestRequest($"/storage/action/status/{jobId}", Method.Get);
             var status = await Client.ExecuteWithErrorHandling<StorageActionStatusResponseDto>(request);
@@ -627,10 +602,8 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                 throw new PluginApplicationException(
                     $"Intento LQA job failed. Status response: {JsonConvert.SerializeObject(status)}");
 
-            await Task.Delay(TimeSpan.FromSeconds(1));
+            await Task.Delay(IntentoLqaJobPollInterval);
         }
-
-        throw new PluginApplicationException("Intento LQA job polling timed out.");
     }
 
     private async Task<Dictionary<string, SearchSegmentEvaluationDto>> FetchEvaluationsWithSingleRetry(
@@ -649,7 +622,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         catch (PluginApplicationException ex) when (ShouldRetryEmptyEvaluationMaterialization(jobStatus, ex))
         {
             var retryJobId = await RunIntentoLqaAction(actionId, targetLanguage, expectedSearchKeys, operationPath);
-            var retryStatus = await WaitForIntentoLqaJob(retryJobId);
+            await WaitForIntentoLqaJob(retryJobId);
 
             return await FetchIntentoLqaEvaluations(targetLanguage, sourceLanguage, records, operationPath);
         }
@@ -668,33 +641,26 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         Dictionary<string, SearchSegmentEvaluationDto> evaluations = new(StringComparer.OrdinalIgnoreCase);
 
-        for (var attempt = 0; attempt < IntentoLqaEvaluationPollAttempts; attempt++)
+        for (var attempt = 0; ; attempt++)
         {
             evaluations = new Dictionary<string, SearchSegmentEvaluationDto>(StringComparer.OrdinalIgnoreCase);
+            var items = await GetSegmentsBySearchKeys(targetLanguage, sourceLanguage, operationPath, expectedKeys);
+            var itemsBySearchKey = items
+                .Where(x => !string.IsNullOrWhiteSpace(x.SearchKey))
+                .GroupBy(x => x.SearchKey!, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
 
-            foreach (var record in records)
+            foreach (var item in itemsBySearchKey.Values)
             {
-                var item = await SearchSegmentByExternalKeyAndSearchKey(
-                    targetLanguage,
-                    sourceLanguage,
-                    operationPath,
-                    record.ExternalKey,
-                    record.SearchKey);
-
-                if (item?.Evaluation != null)
-                {
-                    evaluations[record.SearchKey] = item.Evaluation;
-                }
+                if (!string.IsNullOrWhiteSpace(item.SearchKey) && item.Evaluation != null)
+                    evaluations[item.SearchKey] = item.Evaluation;
             }
 
             if (evaluations.Keys.Count(expectedKeys.Contains) == expectedKeys.Count)
                 return evaluations;
 
-            await Task.Delay(IntentoLqaPollInterval);
+            await Task.Delay(IntentoLqaEvaluationPollInterval);
         }
-
-        throw new PluginApplicationException(
-            $"Intento LQA evaluations were not materialized in storage after job success. Expected {expectedKeys.Count} keys, found {evaluations.Count} evaluations.");
     }
 
     private static bool ShouldRetryEmptyEvaluationMaterialization(
@@ -716,43 +682,35 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             && failedCount == 0;
     }
 
-    private async Task<SearchSegmentItemDto?> SearchSegmentByExternalKeyAndSearchKey(
+    private async Task<List<SearchSegmentItemDto>> GetSegmentsBySearchKeys(
         string targetLanguage,
         string sourceLanguage,
         string operationPath,
-        string externalKey,
-        string searchKey)
+        IEnumerable<string> searchKeys)
     {
-        var request = new RestRequest($"/storage/segment/{targetLanguage}/search", Method.Get);
-        request.AddHeader("x-storage-path", operationPath);
-        request.AddQueryParameter("limit", "50");
-        request.AddQueryParameter("from", sourceLanguage);
-        request.AddQueryParameter("type", "ht");
-        request.AddQueryParameter("textSearchMode", "external-key");
-        request.AddQueryParameter("keywords", externalKey);
+        var items = new List<SearchSegmentItemDto>();
+        foreach (var batch in searchKeys
+                     .Where(x => !string.IsNullOrWhiteSpace(x))
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .Chunk(50))
+        {
+            var request = new RestRequest($"/storage/segment/{targetLanguage}/search", Method.Get);
+            request.AddHeader("x-storage-path", operationPath);
+            request.AddQueryParameter("limit", "50");
+            request.AddQueryParameter("from", sourceLanguage);
+            request.AddQueryParameter("type", "ht");
+            request.AddQueryParameter("paths[]", operationPath);
+            foreach (var searchKey in batch)
+            {
+                request.AddQueryParameter("searchKeys[]", searchKey);
+            }
 
-        var response = await Client.ExecuteWithErrorHandling<SearchSegmentsResponseDto>(request);
-        return response.Items?
-            .FirstOrDefault(x => string.Equals(x.SearchKey, searchKey, StringComparison.OrdinalIgnoreCase));
-    }
+            var response = await Client.ExecuteWithErrorHandling<SearchSegmentsResponseDto>(request);
+            if (response.Items != null)
+                items.AddRange(response.Items);
+        }
 
-    private async Task<SearchSegmentItemDto?> SearchSegmentByExternalKey(
-        string targetLanguage,
-        string sourceLanguage,
-        string operationPath,
-        string externalKey)
-    {
-        var request = new RestRequest($"/storage/segment/{targetLanguage}/search", Method.Get);
-        request.AddHeader("x-storage-path", operationPath);
-        request.AddQueryParameter("limit", "50");
-        request.AddQueryParameter("from", sourceLanguage);
-        request.AddQueryParameter("type", "ht");
-        request.AddQueryParameter("textSearchMode", "external-key");
-        request.AddQueryParameter("keywords", externalKey);
-
-        var response = await Client.ExecuteWithErrorHandling<SearchSegmentsResponseDto>(request);
-        return response.Items?
-            .FirstOrDefault(x => string.Equals(x.Meta?.ExternalKey, externalKey, StringComparison.OrdinalIgnoreCase));
+        return items;
     }
 
     private static void AddIntentoNotes(Unit unit, JArray? errors, string source, HashSet<string> recordedNotes)
@@ -811,25 +769,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         return !string.IsNullOrWhiteSpace(source) && !string.IsNullOrWhiteSpace(target);
     }
 
-    private static string BuildExternalKey(Unit unit, int unitIndex, int segmentIndex)
-    {
-        var baseKey = !string.IsNullOrWhiteSpace(unit.Id)
-            ? unit.Id
-            : !string.IsNullOrWhiteSpace(unit.Name)
-                ? unit.Name
-                : $"unit-{unitIndex + 1}";
-
-        return $"{baseKey}|seg-{segmentIndex + 1}";
-    }
-
-    private static string CreateSearchKey(string source)
-    {
-        using var md5 = System.Security.Cryptography.MD5.Create();
-        var bytes = System.Text.Encoding.UTF8.GetBytes(source);
-        var hash = md5.ComputeHash(bytes);
-        return Convert.ToHexString(hash).ToLowerInvariant();
-    }
-
     private static double NormalizeIntentoScore(double score) => score > 1 ? score / 100d : score;
 
     private async Task<Blackbird.Applications.Sdk.Common.Files.FileReference> BuildReviewedFile(
@@ -884,10 +823,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         public required string TargetLanguage { get; init; }
 
-        public required string ExternalKey { get; init; }
-
-        public required string SearchKey { get; set; }
-
-        public required string Path { get; init; }
+        public string SearchKey { get; set; } = string.Empty;
     }
 }

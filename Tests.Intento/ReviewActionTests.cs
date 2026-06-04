@@ -50,8 +50,8 @@ public class ReviewActionTests : TestBase
             ScoreThreshold = 0.8,
             File = new FileReference
             {
-                Name = "test_AIQE_Es-en-es-T.mxliff"
-                //Name = "test_AIQE_Es-en-es-T-source-variant.mxliff"
+                //Name = "test_AIQE_Es-en-es-T.mxliff"
+                Name = "test_AIQE_Es-en-es-T-source-variant.mxliff"
                 //Name = "demo.docx.xlf"
             }
         });
