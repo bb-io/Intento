@@ -3,6 +3,7 @@ using Apps.Intento.Model.Request;
 using Apps.Intento.Model.Response;
 using Apps.Intento.Service;
 using Apps.Intento.Utils;
+using Apps.Intento.Constants;
 using Blackbird.Applications.Sdk.Common;
 using Blackbird.Applications.Sdk.Common.Actions;
 using Blackbird.Applications.Sdk.Common.Exceptions;
@@ -276,53 +277,168 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             }
         }
 
-        var processedSegmentsCount = 0;
-        var finalizedSegmentsCount = 0;
-        var underThresholdCount = 0;
-        double totalScore = 0.0;
-        var recordedNotes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var (processedSegmentsCount, finalizedSegmentsCount, underThresholdCount, totalScore) =
+            ApplyIntentoLqaEvaluations(segmentRecords, evaluations, threshold);
 
-        foreach (var record in segmentRecords)
+        var outputFileHandling = string.Equals(input.OutputFileHandling, "xliff1", StringComparison.OrdinalIgnoreCase)
+            ? "xliff1"
+            : null;
+
+        var finalFile = await BuildReviewedFile(content, new ReviewFileRequest
         {
-            if (!evaluations.TryGetValue(record.SearchKey, out var evaluation) || evaluation.Score == null)
-                continue;
+            File = input.File,
+            OutputFileHandling = outputFileHandling
+        });
 
-            var normalizedScore = NormalizeIntentoScore(evaluation.Score.Value);
-            processedSegmentsCount++;
-            totalScore += normalizedScore;
+        var avgMetric = processedSegmentsCount > 0 ? (float)(totalScore / processedSegmentsCount) : 0f;
+        var pctUnder = processedSegmentsCount > 0 ? (float)underThresholdCount / processedSegmentsCount : 0f;
 
-            if (evaluation.Details?.OpenAiResults != null)
-            {
-                AddIntentoNotes(
-                    record.Unit,
-                    evaluation.Details.OpenAiResults["content"]?["errors"] as JArray,
-                    source: "intento-openai",
-                    recordedNotes);
-            }
+        return new QualityEstimationResponse
+        {
+            File = finalFile,
+            TotalSegmentsProcessed = processedSegmentsCount,
+            TotalSegmentsFinalized = finalizedSegmentsCount,
+            TotalSegmentsUnderThreshhold = underThresholdCount,
+            AverageMetric = avgMetric,
+            PercentageSegmentsUnderThreshhold = pctUnder
+        };
+    }
 
-            if (evaluation.Details?.RuleBasedResults != null)
-            {
-                AddIntentoNotes(
-                    record.Unit,
-                    evaluation.Details.RuleBasedResults["content"] as JArray,
-                    source: "intento-rule-based",
-                    recordedNotes);
-            }
+    [Action("Review with Intento LQA(background)", Description = "Store file segments in Intento storage, start background LQA review jobs and return their identifiers.")]
+    public async Task<ReviewFileWithIntentoLqaBackgroundResponse> ReviewFileWithIntentoLqaBackground([ActionParameter] ReviewFileWithIntentoLqaBackgroundRequest input)
+    {
+        if (input.File == null)
+            throw new PluginMisconfigurationException("File is required.");
 
-            record.Unit.Quality.ProfileReference = "Intento LQA";
-            record.Unit.Quality.ScoreThreshold = threshold;
-            record.Unit.Quality.Score = (float)normalizedScore;
+        var threshold = input.ScoreThreshold ?? 0.8;
+        if (threshold < 0 || threshold > 1)
+            throw new PluginMisconfigurationException("Score threshold must be in range 0..1.");
 
-            if (normalizedScore >= threshold)
-            {
-                record.Segment.State = SegmentState.Final;
-                finalizedSegmentsCount++;
-            }
-            else
-            {
-                underThresholdCount++;
-            }
+        using var stream = await fileManagement.DownloadAsync(input.File);
+        var content = await Transformation.Parse(stream, input.File.Name);
+
+        if (!string.IsNullOrWhiteSpace(input.SourceLanguage))
+            content.SourceLanguage = input.SourceLanguage;
+
+        if (!string.IsNullOrWhiteSpace(input.TargetLanguage))
+            content.TargetLanguage = input.TargetLanguage;
+
+        if (string.IsNullOrWhiteSpace(content.SourceLanguage))
+            throw new PluginMisconfigurationException("Source language is not defined. Provide Source language.");
+
+        if (string.IsNullOrWhiteSpace(content.TargetLanguage))
+            throw new PluginMisconfigurationException("Target language is not defined. Provide Target language.");
+
+        var sourceLanguage = content.SourceLanguage!;
+        var targetLanguage = content.TargetLanguage!;
+        var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage);
+        if (!segmentRecords.Any())
+            throw new PluginApplicationException("No reviewable segments were found in the file.");
+
+        await StoreSegments(segmentRecords, IntentoLqaStoragePath);
+        await WaitForStoredSegmentsReady(targetLanguage, sourceLanguage, segmentRecords, IntentoLqaStoragePath);
+
+        var expectedSearchKeys = segmentRecords
+            .Select(x => x.SearchKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var jobIds = new List<string>();
+        foreach (var batchSearchKeys in expectedSearchKeys
+                     .Chunk(IntentoLqaActionBatchSize)
+                     .Select(x => x.ToList()))
+        {
+            var jobId = await RunIntentoLqaAction(IntentoLqaActionId, targetLanguage, batchSearchKeys, IntentoLqaStoragePath);
+            jobIds.Add(jobId);
         }
+
+        StoreIntentoLqaBackgroundState(content, new()
+        {
+            SourceLanguage = sourceLanguage,
+            TargetLanguage = targetLanguage,
+            ScoreThreshold = threshold,
+            JobIds = jobIds,
+            SearchKeys = expectedSearchKeys,
+            SegmentMappings = segmentRecords
+                .Select(x => new IntentoLqaBackgroundSegmentMappingDto
+                {
+                    SearchKey = x.SearchKey,
+                    UnitIndex = x.UnitIndex,
+                    SegmentIndex = x.SegmentIndex
+                })
+                .ToList()
+        });
+
+        var transformationFile = await fileManagement.UploadAsync(
+            content.Serialize().ToStream(),
+            MediaTypes.Xliff,
+            content.XliffFileName);
+
+        return new ReviewFileWithIntentoLqaBackgroundResponse
+        {
+            File = transformationFile,
+            JobIds = jobIds,
+            SearchKeys = expectedSearchKeys,
+            TargetLanguage = targetLanguage,
+            SourceLanguage = sourceLanguage,
+            TotalSegmentsSentForReview = segmentRecords.Count
+        };
+    }
+
+    [Action("Download background Intento review", Description = "Download completed Intento LQA review results and write them back to the transformation file.")]
+    public async Task<QualityEstimationResponse> DownloadBackgroundIntentoReview([ActionParameter] DownloadBackgroundIntentoReviewRequest input)
+    {
+        if (input.File == null)
+            throw new PluginMisconfigurationException("Transformation file is required.");
+
+        using var stream = await fileManagement.DownloadAsync(input.File);
+        var content = await Transformation.Parse(stream, input.File.Name);
+        var backgroundState = GetIntentoLqaBackgroundState(content);
+
+        var threshold = input.ScoreThreshold ?? backgroundState?.ScoreThreshold ?? 0.8;
+        if (threshold < 0 || threshold > 1)
+            throw new PluginMisconfigurationException("Score threshold must be in range 0..1.");
+
+        if (!string.IsNullOrWhiteSpace(input.SourceLanguage))
+            content.SourceLanguage = input.SourceLanguage;
+        else if (string.IsNullOrWhiteSpace(content.SourceLanguage) && !string.IsNullOrWhiteSpace(backgroundState?.SourceLanguage))
+            content.SourceLanguage = backgroundState.SourceLanguage;
+
+        if (!string.IsNullOrWhiteSpace(input.TargetLanguage))
+            content.TargetLanguage = input.TargetLanguage;
+        else if (string.IsNullOrWhiteSpace(content.TargetLanguage) && !string.IsNullOrWhiteSpace(backgroundState?.TargetLanguage))
+            content.TargetLanguage = backgroundState.TargetLanguage;
+
+        if (string.IsNullOrWhiteSpace(content.SourceLanguage))
+            throw new PluginMisconfigurationException("Source language is not defined. Provide Source language.");
+
+        if (string.IsNullOrWhiteSpace(content.TargetLanguage))
+            throw new PluginMisconfigurationException("Target language is not defined. Provide Target language.");
+
+        var sourceLanguage = content.SourceLanguage!;
+        var targetLanguage = content.TargetLanguage!;
+        var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage);
+        if (!segmentRecords.Any())
+            throw new PluginApplicationException("No reviewable segments were found in the file.");
+
+        var requestedSearchKeys = ResolveRequestedSearchKeys(input.SearchKeys, backgroundState);
+        AssignSearchKeysToSegmentRecords(segmentRecords, requestedSearchKeys, backgroundState);
+
+        var recordsToEvaluate = segmentRecords
+            .Where(x => !string.IsNullOrWhiteSpace(x.SearchKey))
+            .ToList();
+
+        if (!recordsToEvaluate.Any())
+            throw new PluginApplicationException("No search keys were mapped to reviewable segments.");
+
+        var evaluations = await FetchIntentoLqaEvaluations(
+            targetLanguage,
+            sourceLanguage,
+            recordsToEvaluate,
+            IntentoLqaStoragePath);
+
+        var (processedSegmentsCount, finalizedSegmentsCount, underThresholdCount, totalScore) =
+            ApplyIntentoLqaEvaluations(recordsToEvaluate, evaluations, threshold);
 
         var outputFileHandling = string.Equals(input.OutputFileHandling, "xliff1", StringComparison.OrdinalIgnoreCase)
             ? "xliff1"
@@ -488,6 +604,8 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                 {
                     Unit = unit,
                     Segment = segment,
+                    UnitIndex = unitIndex,
+                    SegmentIndex = segmentIndex,
                     SourceText = source,
                     TargetText = target,
                     SourceLanguage = sourceLanguage,
@@ -766,7 +884,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
     private static bool ShouldReviewSegment(Segment segment)
     {
-        if (segment == null || segment.IsIgnorbale)
+        if (segment == null || segment.IsIgnorbale || segment.State == SegmentState.Final)
             return false;
 
         var source = LineElementMapper.RenderLine(segment.Source);
@@ -776,6 +894,161 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     }
 
     private static double NormalizeIntentoScore(double score) => score > 1 ? score / 100d : score;
+
+    private static (int ProcessedSegmentsCount, int FinalizedSegmentsCount, int UnderThresholdCount, double TotalScore)
+        ApplyIntentoLqaEvaluations(
+            List<IntentoLqaSegmentRecord> segmentRecords,
+            IReadOnlyDictionary<string, SearchSegmentEvaluationDto> evaluations,
+            double threshold)
+    {
+        var processedSegmentsCount = 0;
+        var finalizedSegmentsCount = 0;
+        var underThresholdCount = 0;
+        double totalScore = 0.0;
+        var recordedNotes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var record in segmentRecords)
+        {
+            if (!evaluations.TryGetValue(record.SearchKey, out var evaluation) || evaluation.Score == null)
+                continue;
+
+            var normalizedScore = NormalizeIntentoScore(evaluation.Score.Value);
+            processedSegmentsCount++;
+            totalScore += normalizedScore;
+
+            if (evaluation.Details?.OpenAiResults != null)
+            {
+                AddIntentoNotes(
+                    record.Unit,
+                    evaluation.Details.OpenAiResults["content"]?["errors"] as JArray,
+                    source: "intento-openai",
+                    recordedNotes);
+            }
+
+            if (evaluation.Details?.RuleBasedResults != null)
+            {
+                AddIntentoNotes(
+                    record.Unit,
+                    evaluation.Details.RuleBasedResults["content"] as JArray,
+                    source: "intento-rule-based",
+                    recordedNotes);
+            }
+
+            record.Unit.Quality.ProfileReference = "Intento LQA";
+            record.Unit.Quality.ScoreThreshold = threshold;
+            record.Unit.Quality.Score = (float)normalizedScore;
+
+            if (normalizedScore >= threshold)
+            {
+                record.Segment.State = SegmentState.Final;
+                finalizedSegmentsCount++;
+            }
+            else
+            {
+                underThresholdCount++;
+            }
+        }
+
+        return (processedSegmentsCount, finalizedSegmentsCount, underThresholdCount, totalScore);
+    }
+
+    private static List<string> ResolveRequestedSearchKeys(
+        IEnumerable<string>? inputSearchKeys,
+        IntentoLqaBackgroundStateDto? backgroundState)
+    {
+        var requestedSearchKeys = inputSearchKeys?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (requestedSearchKeys?.Any() == true)
+            return requestedSearchKeys;
+
+        if (backgroundState?.SearchKeys?.Any() == true)
+        {
+            return backgroundState.SearchKeys
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        throw new PluginMisconfigurationException(
+            "Search keys are required when the transformation file does not contain stored Intento background metadata.");
+    }
+
+    private static void AssignSearchKeysToSegmentRecords(
+        List<IntentoLqaSegmentRecord> segmentRecords,
+        List<string> requestedSearchKeys,
+        IntentoLqaBackgroundStateDto? backgroundState)
+    {
+        var requestedSearchKeySet = requestedSearchKeys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (backgroundState?.SegmentMappings?.Any() == true)
+        {
+            var mappingsByPosition = backgroundState.SegmentMappings
+                .Where(x => !string.IsNullOrWhiteSpace(x.SearchKey) && requestedSearchKeySet.Contains(x.SearchKey))
+                .ToDictionary(x => (x.UnitIndex, x.SegmentIndex), x => x.SearchKey);
+
+            foreach (var record in segmentRecords)
+            {
+                if (mappingsByPosition.TryGetValue((record.UnitIndex, record.SegmentIndex), out var searchKey))
+                    record.SearchKey = searchKey;
+            }
+
+            var mappedSearchKeys = segmentRecords
+                .Where(x => !string.IsNullOrWhiteSpace(x.SearchKey))
+                .Select(x => x.SearchKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (!requestedSearchKeySet.SetEquals(mappedSearchKeys))
+                throw new PluginApplicationException("Some requested search keys could not be mapped back to file segments.");
+
+            return;
+        }
+
+        if (requestedSearchKeys.Count != segmentRecords.Count)
+        {
+            throw new PluginMisconfigurationException(
+                "Search key count does not match the number of reviewable segments in the file, and no stored mapping metadata was found.");
+        }
+
+        for (var i = 0; i < segmentRecords.Count; i++)
+        {
+            segmentRecords[i].SearchKey = requestedSearchKeys[i];
+        }
+    }
+
+    private static IntentoLqaBackgroundStateDto? GetIntentoLqaBackgroundState(Transformation content)
+    {
+        var stateMetadata = content.MetaData.Find(x =>
+            x.Category.Contains(TransformationIntentoMetadata.Category)
+            && x.Type == TransformationIntentoMetadata.IntentoLqaBackgroundStateType);
+
+        if (stateMetadata == null || string.IsNullOrWhiteSpace(stateMetadata.Value))
+            return null;
+
+        return JsonConvert.DeserializeObject<IntentoLqaBackgroundStateDto>(stateMetadata.Value);
+    }
+
+    private static void StoreIntentoLqaBackgroundState(Transformation content, IntentoLqaBackgroundStateDto state)
+    {
+        var existingStateMetadata = content.MetaData
+            .Where(x => x.Category.Contains(TransformationIntentoMetadata.Category)
+                        && x.Type == TransformationIntentoMetadata.IntentoLqaBackgroundStateType)
+            .ToList();
+
+        foreach (var metadata in existingStateMetadata)
+        {
+            content.MetaData.Remove(metadata);
+        }
+
+        content.MetaData.Add(new(
+            TransformationIntentoMetadata.IntentoLqaBackgroundStateType,
+            JsonConvert.SerializeObject(state))
+        {
+            Category = [TransformationIntentoMetadata.Category]
+        });
+    }
 
     private async Task<Blackbird.Applications.Sdk.Common.Files.FileReference> BuildReviewedFile(
         Transformation content,
@@ -820,6 +1093,10 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         public required Unit Unit { get; init; }
 
         public required Segment Segment { get; init; }
+
+        public required int UnitIndex { get; init; }
+
+        public required int SegmentIndex { get; init; }
 
         public required string SourceText { get; init; }
 
