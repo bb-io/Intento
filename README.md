@@ -21,6 +21,12 @@ The Intento app enables Blackbird workflows to use Intento for machine translati
 
 - **Review text**: Review translation quality for source and target text using IntentoQA.
 - **Review**: Review translation quality using IntentoLQA for bilingual files, marks segments above the threshold as final, and returns the reviewed file together with summary metrics.
+- **Review in background with Intento LQA**: Submits a bilingual file for review with IntentoLQA, returns a job ID, and allows users to check the status of the review job and retrieve results when the job is complete.
+- **Download background review results** : Downloads the reviewed file and summary metrics for a completed background review job.
+
+### Event
+
+- **On background review with Intento LQA finished**: Triggered when all provided Intento LQA search keys have evaluations.
 
 ### Usage
 

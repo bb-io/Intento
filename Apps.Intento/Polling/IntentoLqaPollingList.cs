@@ -14,7 +14,7 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
 {
     private const string IntentoLqaStoragePath = "https://blackbird.io";
 
-    [PollingEvent("On Intento LQA segment review finished", "Triggered when all provided Intento LQA search keys have evaluations.")]
+    [PollingEvent("On background review with Intento LQA finished", "Triggered when all provided Intento LQA search keys have evaluations.")]
     public async Task<PollingEventResponse<IntentoLqaReviewMemory, IntentoLqaPollingResponse>> OnIntentoLqaSegmentReviewFinished(
         PollingEventRequest<IntentoLqaReviewMemory> request,
         [PollingEventParameter] OnIntentoLqaSegmentReviewFinishedRequest input)
@@ -70,7 +70,6 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
 
         var items = await GetSegmentsBySearchKeys(
             input.TargetLanguage,
-            input.SourceLanguage,
             searchKeys);
 
         var evaluatedKeys = items
@@ -99,7 +98,6 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
 
     private async Task<List<SearchSegmentItemDto>> GetSegmentsBySearchKeys(
         string targetLanguage,
-        string sourceLanguage,
         IEnumerable<string> searchKeys)
     {
         var items = new List<SearchSegmentItemDto>();
@@ -108,12 +106,8 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
                      .Distinct(StringComparer.OrdinalIgnoreCase)
                      .Chunk(50))
         {
-            var request = new RestRequest($"/storage/segment/{targetLanguage}/search", Method.Get);
+            var request = new RestRequest($"/storage/segment/{targetLanguage}", Method.Get);
             request.AddHeader("x-storage-path", IntentoLqaStoragePath);
-            request.AddQueryParameter("limit", "50");
-            request.AddQueryParameter("from", sourceLanguage);
-            request.AddQueryParameter("type", "ht");
-            request.AddQueryParameter("paths[]", IntentoLqaStoragePath);
             foreach (var searchKey in batch)
             {
                 request.AddQueryParameter("searchKeys[]", searchKey);
