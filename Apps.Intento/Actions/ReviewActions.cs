@@ -88,21 +88,16 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         using var stream = await fileManagement.DownloadAsync(input.File);
         var content = await Transformation.Parse(stream, input.File.Name);
-
-        if (!string.IsNullOrWhiteSpace(input.SourceLanguage))
-            content.SourceLanguage = input.SourceLanguage;
-
-        if (!string.IsNullOrWhiteSpace(input.TargetLanguage))
-            content.TargetLanguage = input.TargetLanguage;
-
-        if (string.IsNullOrWhiteSpace(content.SourceLanguage))
-            throw new PluginMisconfigurationException("Source language is not defined. Provide Source language.");
-
-        if (string.IsNullOrWhiteSpace(content.TargetLanguage))
-            throw new PluginMisconfigurationException("Target language is not defined. Provide Target language.");
-
-        var sourceLanguage = content.SourceLanguage!;
-        var targetLanguage = content.TargetLanguage!;
+        var sourceLanguage = ResolveRequiredLanguage(
+            input.SourceLanguage,
+            content.SourceLanguage,
+            null,
+            "Source language is not defined. Provide Source language.");
+        var targetLanguage = ResolveRequiredLanguage(
+            input.TargetLanguage,
+            content.TargetLanguage,
+            null,
+            "Target language is not defined. Provide Target language.");
 
         int processedSegmentsCount = 0;
         int finalizedSegmentsCount = 0;
@@ -215,21 +210,16 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         using var stream = await fileManagement.DownloadAsync(input.File);
         var content = await Transformation.Parse(stream, input.File.Name);
-
-        if (!string.IsNullOrWhiteSpace(input.SourceLanguage))
-            content.SourceLanguage = input.SourceLanguage;
-
-        if (!string.IsNullOrWhiteSpace(input.TargetLanguage))
-            content.TargetLanguage = input.TargetLanguage;
-
-        if (string.IsNullOrWhiteSpace(content.SourceLanguage))
-            throw new PluginMisconfigurationException("Source language is not defined. Provide Source language.");
-
-        if (string.IsNullOrWhiteSpace(content.TargetLanguage))
-            throw new PluginMisconfigurationException("Target language is not defined. Provide Target language.");
-
-        var sourceLanguage = content.SourceLanguage!;
-        var targetLanguage = content.TargetLanguage!;
+        var sourceLanguage = ResolveRequiredLanguage(
+            input.SourceLanguage,
+            content.SourceLanguage,
+            null,
+            "Source language is not defined. Provide Source language.");
+        var targetLanguage = ResolveRequiredLanguage(
+            input.TargetLanguage,
+            content.TargetLanguage,
+            null,
+            "Target language is not defined. Provide Target language.");
 
         var operationPath = IntentoLqaStoragePath;
         var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage);
@@ -237,7 +227,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             throw new PluginApplicationException("No reviewable segments were found in the file.");
 
         await StoreSegments(segmentRecords, operationPath);
-        await WaitForStoredSegmentsReady(targetLanguage, sourceLanguage, segmentRecords, operationPath);
+        await WaitForStoredSegmentsReady(targetLanguage, segmentRecords, operationPath);
 
         var actionId = IntentoLqaActionId;
         var expectedSearchKeys = segmentRecords
@@ -304,7 +294,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         };
     }
 
-    [Action("Review with Intento LQA(background)", Description = "Store file segments in Intento storage, start background LQA review jobs and return their identifiers.")]
+    [Action("Review in background with Intento LQA", Description = "Store file segments in Intento storage, start background LQA review jobs and return their identifiers.")]
     public async Task<ReviewFileWithIntentoLqaBackgroundResponse> ReviewFileWithIntentoLqaBackground([ActionParameter] ReviewFileWithIntentoLqaBackgroundRequest input)
     {
         if (input.File == null)
@@ -316,27 +306,22 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         using var stream = await fileManagement.DownloadAsync(input.File);
         var content = await Transformation.Parse(stream, input.File.Name);
-
-        if (!string.IsNullOrWhiteSpace(input.SourceLanguage))
-            content.SourceLanguage = input.SourceLanguage;
-
-        if (!string.IsNullOrWhiteSpace(input.TargetLanguage))
-            content.TargetLanguage = input.TargetLanguage;
-
-        if (string.IsNullOrWhiteSpace(content.SourceLanguage))
-            throw new PluginMisconfigurationException("Source language is not defined. Provide Source language.");
-
-        if (string.IsNullOrWhiteSpace(content.TargetLanguage))
-            throw new PluginMisconfigurationException("Target language is not defined. Provide Target language.");
-
-        var sourceLanguage = content.SourceLanguage!;
-        var targetLanguage = content.TargetLanguage!;
+        var sourceLanguage = ResolveRequiredLanguage(
+            input.SourceLanguage,
+            content.SourceLanguage,
+            null,
+            "Source language is not defined. Provide Source language.");
+        var targetLanguage = ResolveRequiredLanguage(
+            input.TargetLanguage,
+            content.TargetLanguage,
+            null,
+            "Target language is not defined. Provide Target language.");
         var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage);
         if (!segmentRecords.Any())
             throw new PluginApplicationException("No reviewable segments were found in the file.");
 
         await StoreSegments(segmentRecords, IntentoLqaStoragePath);
-        await WaitForStoredSegmentsReady(targetLanguage, sourceLanguage, segmentRecords, IntentoLqaStoragePath);
+        await WaitForStoredSegmentsReady(targetLanguage, segmentRecords, IntentoLqaStoragePath);
 
         var expectedSearchKeys = segmentRecords
             .Select(x => x.SearchKey)
@@ -385,7 +370,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         };
     }
 
-    [Action("Download background Intento review", Description = "Download completed Intento LQA review results and write them back to the transformation file.")]
+    [Action("Download background review results", Description = "Download completed Intento LQA review results and write them back to the transformation file.")]
     public async Task<QualityEstimationResponse> DownloadBackgroundIntentoReview([ActionParameter] DownloadBackgroundIntentoReviewRequest input)
     {
         if (input.File == null)
@@ -399,24 +384,16 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         if (threshold < 0 || threshold > 1)
             throw new PluginMisconfigurationException("Score threshold must be in range 0..1.");
 
-        if (!string.IsNullOrWhiteSpace(input.SourceLanguage))
-            content.SourceLanguage = input.SourceLanguage;
-        else if (string.IsNullOrWhiteSpace(content.SourceLanguage) && !string.IsNullOrWhiteSpace(backgroundState?.SourceLanguage))
-            content.SourceLanguage = backgroundState.SourceLanguage;
-
-        if (!string.IsNullOrWhiteSpace(input.TargetLanguage))
-            content.TargetLanguage = input.TargetLanguage;
-        else if (string.IsNullOrWhiteSpace(content.TargetLanguage) && !string.IsNullOrWhiteSpace(backgroundState?.TargetLanguage))
-            content.TargetLanguage = backgroundState.TargetLanguage;
-
-        if (string.IsNullOrWhiteSpace(content.SourceLanguage))
-            throw new PluginMisconfigurationException("Source language is not defined. Provide Source language.");
-
-        if (string.IsNullOrWhiteSpace(content.TargetLanguage))
-            throw new PluginMisconfigurationException("Target language is not defined. Provide Target language.");
-
-        var sourceLanguage = content.SourceLanguage!;
-        var targetLanguage = content.TargetLanguage!;
+        var sourceLanguage = ResolveRequiredLanguage(
+            input.SourceLanguage,
+            content.SourceLanguage,
+            backgroundState?.SourceLanguage,
+            "Source language is not defined. Provide Source language.");
+        var targetLanguage = ResolveRequiredLanguage(
+            input.TargetLanguage,
+            content.TargetLanguage,
+            backgroundState?.TargetLanguage,
+            "Target language is not defined. Provide Target language.");
         var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage);
         if (!segmentRecords.Any())
             throw new PluginApplicationException("No reviewable segments were found in the file.");
@@ -679,7 +656,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
     private async Task WaitForStoredSegmentsReady(
         string targetLanguage,
-        string sourceLanguage,
         List<IntentoLqaSegmentRecord> records,
         string operationPath)
     {
@@ -693,7 +669,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         for (var attempt = 0; attempt < 60; attempt++)
         {
             storedSegments = new Dictionary<string, SearchSegmentItemDto>(StringComparer.OrdinalIgnoreCase);
-            var items = await GetSegmentsBySearchKeys(targetLanguage, sourceLanguage, operationPath, expectedKeys);
+            var items = await GetSegmentsBySearchKeys(targetLanguage, operationPath, expectedKeys);
             foreach (var item in items)
             {
                 if (!string.IsNullOrWhiteSpace(item.SearchKey))
@@ -707,7 +683,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         }
 
         throw new PluginApplicationException(
-            $"Intento LQA stored segments were not visible in storage search. Expected {expectedKeys.Count} keys, found {storedSegments.Count} segments.");
+            $"Intento LQA stored segments were not visible in storage get. Expected {expectedKeys.Count} keys, found {storedSegments.Count} segments.");
     }
 
     private async Task<StorageActionStatusResponseDto> WaitForIntentoLqaJob(string jobId)
@@ -768,7 +744,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         for (var attempt = 0; ; attempt++)
         {
             evaluations = new Dictionary<string, SearchSegmentEvaluationDto>(StringComparer.OrdinalIgnoreCase);
-            var items = await GetSegmentsBySearchKeys(targetLanguage, sourceLanguage, operationPath, expectedKeys);
+            var items = await GetSegmentsBySearchKeys(targetLanguage, operationPath, expectedKeys);
             var itemsBySearchKey = items
                 .Where(x => !string.IsNullOrWhiteSpace(x.SearchKey))
                 .GroupBy(x => x.SearchKey!, StringComparer.OrdinalIgnoreCase)
@@ -808,7 +784,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
     private async Task<List<SearchSegmentItemDto>> GetSegmentsBySearchKeys(
         string targetLanguage,
-        string sourceLanguage,
         string operationPath,
         IEnumerable<string> searchKeys)
     {
@@ -818,12 +793,8 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                      .Distinct(StringComparer.OrdinalIgnoreCase)
                      .Chunk(50))
         {
-            var request = new RestRequest($"/storage/segment/{targetLanguage}/search", Method.Get);
+            var request = new RestRequest($"/storage/segment/{targetLanguage}", Method.Get);
             request.AddHeader("x-storage-path", operationPath);
-            request.AddQueryParameter("limit", "50");
-            request.AddQueryParameter("from", sourceLanguage);
-            request.AddQueryParameter("type", "ht");
-            request.AddQueryParameter("paths[]", operationPath);
             foreach (var searchKey in batch)
             {
                 request.AddQueryParameter("searchKeys[]", searchKey);
@@ -880,6 +851,24 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         return new string(normalized
             .Where(ch => char.IsLetterOrDigit(ch) || ch == '-')
             .ToArray());
+    }
+
+    private static string ResolveRequiredLanguage(
+        string? inputLanguage,
+        string? fileLanguage,
+        string? fallbackLanguage,
+        string missingMessage)
+    {
+        if (!string.IsNullOrWhiteSpace(inputLanguage))
+            return inputLanguage.Trim();
+
+        if (!string.IsNullOrWhiteSpace(fileLanguage))
+            return fileLanguage.Trim();
+
+        if (!string.IsNullOrWhiteSpace(fallbackLanguage))
+            return fallbackLanguage.Trim();
+
+        throw new PluginMisconfigurationException(missingMessage);
     }
 
     private static bool ShouldReviewSegment(Segment segment)
