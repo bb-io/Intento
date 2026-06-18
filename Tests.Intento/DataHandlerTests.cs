@@ -1,4 +1,5 @@
-﻿using Apps.Intento.DataHandlers;
+using Apps.Intento.DataHandlers;
+using Apps.Intento.DataHandlers.Static;
 using Tests.Intento.Base;
 
 namespace Tests.Intento;
@@ -117,5 +118,14 @@ public class DataHandlerTests : TestBase
 
         Assert.IsNotNull(result);
     }
-}
 
+    [TestMethod]
+    public void IntentoLqaTextThresholdDataHandler_IsSuccess()
+    {
+        var handler = new IntentoLqaTextThresholdDataHandler();
+        var result = handler.GetData().ToList();
+
+        Assert.AreEqual(3, result.Count);
+        CollectionAssert.AreEquivalent(new[] { "low", "moderate", "risky" }, result.Select(x => x.Value).ToList());
+    }
+}

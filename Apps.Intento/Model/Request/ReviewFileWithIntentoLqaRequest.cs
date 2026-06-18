@@ -25,6 +25,13 @@ public class ReviewFileWithIntentoLqaRequest
     [StaticDataSource(typeof(ThresholdDataHandler))]
     public double? ScoreThreshold { get; set; }
 
+    [Display("Text verdict threshold", Description = "Use this instead of Score threshold to finalize segments by text verdict.")]
+    [StaticDataSource(typeof(IntentoLqaTextThresholdDataHandler))]
+    public string? TextScoreThreshold { get; set; }
+
+    [Display("Add score as note", Description = "When enabled, adds the chosen Intento LQA score or verdict to segment notes.")]
+    public bool? AddScoreToSegmentComment { get; set; } = true;
+
     [Display("Output file handling", Description = "original = return original format; otherwise returns XLIFF")]
     [StaticDataSource(typeof(ProcessFileFormatHandler))]
     public string? OutputFileHandling { get; set; }

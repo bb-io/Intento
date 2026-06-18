@@ -6,7 +6,11 @@ public class IntentoLqaBackgroundStateDto
 
     public string TargetLanguage { get; set; } = string.Empty;
 
-    public double ScoreThreshold { get; set; }
+    public double? ScoreThreshold { get; set; }
+
+    public string? TextScoreThreshold { get; set; }
+
+    public bool AddScoreToSegmentComment { get; set; } = true;
 
     public List<string> JobIds { get; set; } = [];
 
