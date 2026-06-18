@@ -48,12 +48,14 @@ public class ReviewActionTests : TestBase
         {
             SourceLanguage= "en",
             TargetLanguage = "es",
-            ScoreThreshold = 0.8,
+            //ScoreThreshold = 0.8,
+            TextScoreThreshold = "low",
+            AddScoreToSegmentComment = true,
             File = new FileReference
             {
                 //Name = "test_AIQE_Es-en-es-T.mxliff",
-                Name = "es_ES_test_aiqe_2.xlsx.xlf"
-                //Name = "test_AIQE_Es-en-es-T-source-variant.mxliff"
+                //Name = "es_ES_test_aiqe_2.xlsx.xlf"
+                Name = "test_AIQE_Es-en-es-T-source-variant.mxliff"
                 //Name = "demo.docx_test.xlf"
             }
         });

@@ -204,9 +204,8 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         if (input.File == null)
             throw new PluginMisconfigurationException("File is required.");
 
-        var threshold = input.ScoreThreshold ?? 0.8;
-        if (threshold < 0 || threshold > 1)
-            throw new PluginMisconfigurationException("Score threshold must be in range 0..1.");
+        var thresholdConfig = ResolveThresholdConfiguration(input.ScoreThreshold, input.TextScoreThreshold);
+        var addScoreToSegmentComment = input.AddScoreToSegmentComment ?? true;
 
         using var stream = await fileManagement.DownloadAsync(input.File);
         var content = await Transformation.Parse(stream, input.File.Name);
@@ -267,8 +266,14 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             }
         }
 
-        var (processedSegmentsCount, finalizedSegmentsCount, underThresholdCount, totalScore) =
-            ApplyIntentoLqaEvaluations(segmentRecords, evaluations, threshold);
+        var (processedSegmentsCount, finalizedSegmentsCount, underThresholdCount, totalScore, numericScoreCount) =
+            ApplyIntentoLqaEvaluations(
+                segmentRecords,
+                evaluations,
+                thresholdConfig.FinalizationMode,
+                thresholdConfig.NumericThreshold,
+                thresholdConfig.TextScoreThreshold,
+                addScoreToSegmentComment);
 
         var outputFileHandling = string.Equals(input.OutputFileHandling, "xliff1", StringComparison.OrdinalIgnoreCase)
             ? "xliff1"
@@ -280,7 +285,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             OutputFileHandling = outputFileHandling
         });
 
-        var avgMetric = processedSegmentsCount > 0 ? (float)(totalScore / processedSegmentsCount) : 0f;
+        var avgMetric = numericScoreCount > 0 ? (float)(totalScore / numericScoreCount) : 0f;
         var pctUnder = processedSegmentsCount > 0 ? (float)underThresholdCount / processedSegmentsCount : 0f;
 
         return new QualityEstimationResponse
@@ -300,9 +305,8 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         if (input.File == null)
             throw new PluginMisconfigurationException("File is required.");
 
-        var threshold = input.ScoreThreshold ?? 0.8;
-        if (threshold < 0 || threshold > 1)
-            throw new PluginMisconfigurationException("Score threshold must be in range 0..1.");
+        var thresholdConfig = ResolveThresholdConfiguration(input.ScoreThreshold, input.TextScoreThreshold);
+        var addScoreToSegmentComment = input.AddScoreToSegmentComment ?? true;
 
         using var stream = await fileManagement.DownloadAsync(input.File);
         var content = await Transformation.Parse(stream, input.File.Name);
@@ -341,7 +345,9 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         {
             SourceLanguage = sourceLanguage,
             TargetLanguage = targetLanguage,
-            ScoreThreshold = threshold,
+            ScoreThreshold = thresholdConfig.NumericThreshold,
+            TextScoreThreshold = thresholdConfig.TextScoreThreshold,
+            AddScoreToSegmentComment = addScoreToSegmentComment,
             JobIds = jobIds,
             SearchKeys = expectedSearchKeys,
             SegmentMappings = segmentRecords
@@ -380,9 +386,10 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         var content = await Transformation.Parse(stream, input.File.Name);
         var backgroundState = GetIntentoLqaBackgroundState(content);
 
-        var threshold = input.ScoreThreshold ?? backgroundState?.ScoreThreshold ?? 0.8;
-        if (threshold < 0 || threshold > 1)
-            throw new PluginMisconfigurationException("Score threshold must be in range 0..1.");
+        var thresholdConfig = ResolveThresholdConfiguration(
+            input.ScoreThreshold ?? backgroundState?.ScoreThreshold,
+            input.TextScoreThreshold ?? backgroundState?.TextScoreThreshold);
+        var addScoreToSegmentComment = input.AddScoreToSegmentComment ?? backgroundState?.AddScoreToSegmentComment ?? true;
 
         var sourceLanguage = ResolveRequiredLanguage(
             input.SourceLanguage,
@@ -414,8 +421,14 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             recordsToEvaluate,
             IntentoLqaStoragePath);
 
-        var (processedSegmentsCount, finalizedSegmentsCount, underThresholdCount, totalScore) =
-            ApplyIntentoLqaEvaluations(recordsToEvaluate, evaluations, threshold);
+        var (processedSegmentsCount, finalizedSegmentsCount, underThresholdCount, totalScore, numericScoreCount) =
+            ApplyIntentoLqaEvaluations(
+                recordsToEvaluate,
+                evaluations,
+                thresholdConfig.FinalizationMode,
+                thresholdConfig.NumericThreshold,
+                thresholdConfig.TextScoreThreshold,
+                addScoreToSegmentComment);
 
         var outputFileHandling = string.Equals(input.OutputFileHandling, "xliff1", StringComparison.OrdinalIgnoreCase)
             ? "xliff1"
@@ -427,7 +440,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             OutputFileHandling = outputFileHandling
         });
 
-        var avgMetric = processedSegmentsCount > 0 ? (float)(totalScore / processedSegmentsCount) : 0f;
+        var avgMetric = numericScoreCount > 0 ? (float)(totalScore / numericScoreCount) : 0f;
         var pctUnder = processedSegmentsCount > 0 ? (float)underThresholdCount / processedSegmentsCount : 0f;
 
         return new QualityEstimationResponse
@@ -882,28 +895,37 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         return !string.IsNullOrWhiteSpace(source) && !string.IsNullOrWhiteSpace(target);
     }
 
-    private static double NormalizeIntentoScore(double score) => score > 1 ? score / 100d : score;
-
-    private static (int ProcessedSegmentsCount, int FinalizedSegmentsCount, int UnderThresholdCount, double TotalScore)
+    private static (int ProcessedSegmentsCount, int FinalizedSegmentsCount, int UnderThresholdCount, double TotalScore, int NumericScoreCount)
         ApplyIntentoLqaEvaluations(
             List<IntentoLqaSegmentRecord> segmentRecords,
             IReadOnlyDictionary<string, SearchSegmentEvaluationDto> evaluations,
-            double threshold)
+            string finalizationMode,
+            double numericThreshold,
+            string textScoreThreshold,
+            bool addScoreToSegmentComment)
     {
         var processedSegmentsCount = 0;
         var finalizedSegmentsCount = 0;
         var underThresholdCount = 0;
         double totalScore = 0.0;
+        var numericScoreCount = 0;
         var recordedNotes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var record in segmentRecords)
         {
-            if (!evaluations.TryGetValue(record.SearchKey, out var evaluation) || evaluation.Score == null)
+            if (!evaluations.TryGetValue(record.SearchKey, out var evaluation))
                 continue;
 
-            var normalizedScore = NormalizeIntentoScore(evaluation.Score.Value);
+            var resolvedEvaluation = IntentoLqaEvaluationHelper.ResolveEvaluation(evaluation);
+            if (!IntentoLqaEvaluationHelper.IsEvaluationUsableForMode(resolvedEvaluation, finalizationMode))
+                continue;
+
             processedSegmentsCount++;
-            totalScore += normalizedScore;
+            if (resolvedEvaluation.NormalizedScore.HasValue)
+            {
+                totalScore += resolvedEvaluation.NormalizedScore.Value;
+                numericScoreCount++;
+            }
 
             if (evaluation.Details?.OpenAiResults != null)
             {
@@ -924,10 +946,25 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             }
 
             record.Unit.Quality.ProfileReference = "Intento LQA";
-            record.Unit.Quality.ScoreThreshold = threshold;
-            record.Unit.Quality.Score = (float)normalizedScore;
+            if (string.Equals(finalizationMode, IntentoLqaEvaluationHelper.NumericFinalizationMode, StringComparison.OrdinalIgnoreCase))
+                record.Unit.Quality.ScoreThreshold = numericThreshold;
 
-            if (normalizedScore >= threshold)
+            if (resolvedEvaluation.NormalizedScore.HasValue)
+                record.Unit.Quality.Score = (float)resolvedEvaluation.NormalizedScore.Value;
+
+            if (addScoreToSegmentComment)
+            {
+                AddIntentoEvaluationNote(
+                    record.Unit,
+                    record.Segment,
+                    finalizationMode,
+                    resolvedEvaluation,
+                    numericThreshold,
+                    textScoreThreshold,
+                    recordedNotes);
+            }
+
+            if (IntentoLqaEvaluationHelper.ShouldFinalize(resolvedEvaluation, finalizationMode, numericThreshold, textScoreThreshold))
             {
                 record.Segment.State = SegmentState.Final;
                 finalizedSegmentsCount++;
@@ -938,7 +975,78 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             }
         }
 
-        return (processedSegmentsCount, finalizedSegmentsCount, underThresholdCount, totalScore);
+        return (processedSegmentsCount, finalizedSegmentsCount, underThresholdCount, totalScore, numericScoreCount);
+    }
+
+    private static void AddIntentoEvaluationNote(
+        Unit unit,
+        Segment segment,
+        string finalizationMode,
+        IntentoLqaResolvedEvaluation evaluation,
+        double numericThreshold,
+        string textScoreThreshold,
+        HashSet<string> recordedNotes)
+    {
+        string? text = string.Equals(finalizationMode, IntentoLqaEvaluationHelper.TextFinalizationMode, StringComparison.OrdinalIgnoreCase)
+            ? evaluation.ScoreType == null
+                ? null
+                : IntentoLqaEvaluationHelper.FormatTextScoreNote(evaluation.ScoreType, textScoreThreshold)
+            : evaluation.NormalizedScore.HasValue
+                ? IntentoLqaEvaluationHelper.FormatNumericScoreNote(evaluation.NormalizedScore.Value, numericThreshold)
+                : null;
+
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        unit.Notes ??= [];
+        const string category = "intento-lqa:score";
+        var noteKey = $"{unit.Id}|{segment.Id}|{category}|{text}";
+
+        if (!recordedNotes.Add(noteKey))
+            return;
+
+        unit.Notes.Add(new Note(text)
+        {
+            Category = category,
+            Reference = segment.Id
+        });
+    }
+
+    private static IntentoLqaThresholdConfiguration ResolveThresholdConfiguration(
+        double? numericThreshold,
+        string? textScoreThreshold)
+    {
+        var hasNumericThreshold = numericThreshold.HasValue;
+        var hasTextThreshold = !string.IsNullOrWhiteSpace(textScoreThreshold);
+
+        if (hasNumericThreshold == hasTextThreshold)
+        {
+            throw new PluginMisconfigurationException(
+                "Provide exactly one threshold: either Score threshold or Text verdict threshold.");
+        }
+
+        if (hasNumericThreshold)
+        {
+            ValidateNumericThreshold(numericThreshold!.Value);
+            return new IntentoLqaThresholdConfiguration(
+                IntentoLqaEvaluationHelper.NumericFinalizationMode,
+                numericThreshold.Value,
+                IntentoLqaEvaluationHelper.DefaultTextScoreThreshold);
+        }
+
+        if (!IntentoLqaEvaluationHelper.IsSupportedTextScoreThreshold(textScoreThreshold))
+            throw new PluginMisconfigurationException("Text verdict threshold must be one of: low, moderate, risky.");
+
+        return new IntentoLqaThresholdConfiguration(
+            IntentoLqaEvaluationHelper.TextFinalizationMode,
+            0d,
+            IntentoLqaEvaluationHelper.NormalizeTextScoreThreshold(textScoreThreshold));
+    }
+
+    private static void ValidateNumericThreshold(double threshold)
+    {
+        if (threshold < 0 || threshold > 1)
+            throw new PluginMisconfigurationException("Score threshold must be in range 0..1.");
     }
 
     private static List<string> ResolveRequestedSearchKeys(
@@ -1097,4 +1205,9 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         public string SearchKey { get; set; } = string.Empty;
     }
+
+    private sealed record IntentoLqaThresholdConfiguration(
+        string FinalizationMode,
+        double NumericThreshold,
+        string TextScoreThreshold);
 }
