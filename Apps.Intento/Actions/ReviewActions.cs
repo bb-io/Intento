@@ -26,6 +26,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     : IntentoInvocable(invocationContext)
 {
     private const int IntentoLqaActionBatchSize = 25;
+    private static readonly TimeSpan IntentoLqaPostSearchVisibilityDelay = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan IntentoLqaJobPollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan IntentoLqaEvaluationPollInterval = TimeSpan.FromSeconds(5);
     private const string IntentoLqaActionId = "674f27c0d4496a22fb664db8";
@@ -227,6 +228,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         await StoreSegments(segmentRecords, operationPath);
         await WaitForStoredSegmentsReady(targetLanguage, segmentRecords, operationPath);
+        await Task.Delay(IntentoLqaPostSearchVisibilityDelay);
 
         var actionId = IntentoLqaActionId;
         var expectedSearchKeys = segmentRecords
@@ -326,6 +328,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         await StoreSegments(segmentRecords, IntentoLqaStoragePath);
         await WaitForStoredSegmentsReady(targetLanguage, segmentRecords, IntentoLqaStoragePath);
+        await Task.Delay(IntentoLqaPostSearchVisibilityDelay);
 
         var expectedSearchKeys = segmentRecords
             .Select(x => x.SearchKey)
