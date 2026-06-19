@@ -307,9 +307,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         if (input.File == null)
             throw new PluginMisconfigurationException("File is required.");
 
-        var thresholdConfig = ResolveThresholdConfiguration(input.ScoreThreshold, input.TextScoreThreshold);
-        var addScoreToSegmentComment = input.AddScoreToSegmentComment ?? true;
-
         using var stream = await fileManagement.DownloadAsync(input.File);
         var content = await Transformation.Parse(stream, input.File.Name);
         var sourceLanguage = ResolveRequiredLanguage(
@@ -348,9 +345,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         {
             SourceLanguage = sourceLanguage,
             TargetLanguage = targetLanguage,
-            ScoreThreshold = thresholdConfig.NumericThreshold,
-            TextScoreThreshold = thresholdConfig.TextScoreThreshold,
-            AddScoreToSegmentComment = addScoreToSegmentComment,
             JobIds = jobIds,
             SearchKeys = expectedSearchKeys,
             SegmentMappings = segmentRecords
@@ -390,9 +384,9 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         var backgroundState = GetIntentoLqaBackgroundState(content);
 
         var thresholdConfig = ResolveThresholdConfiguration(
-            input.ScoreThreshold ?? backgroundState?.ScoreThreshold,
-            input.TextScoreThreshold ?? backgroundState?.TextScoreThreshold);
-        var addScoreToSegmentComment = input.AddScoreToSegmentComment ?? backgroundState?.AddScoreToSegmentComment ?? true;
+            input.ScoreThreshold,
+            input.TextScoreThreshold);
+        var addScoreToSegmentComment = input.AddScoreToSegmentComment ?? true;
 
         var sourceLanguage = ResolveRequiredLanguage(
             input.SourceLanguage,
