@@ -10,11 +10,9 @@ using Blackbird.Applications.Sdk.Common.Exceptions;
 using Blackbird.Applications.Sdk.Common.Invocation;
 using Blackbird.Applications.SDK.Blueprints;
 using Blackbird.Applications.SDK.Extensions.FileManagement.Interfaces;
-using Blackbird.Filters.Constants;
 using Blackbird.Filters.Enums;
 using Blackbird.Filters.Extensions;
 using Blackbird.Filters.Transformations;
-using Blackbird.Filters.Xliff.Xliff1;
 using RestSharp;
 using System.Text;
 using System.Xml.Linq;
@@ -24,6 +22,8 @@ namespace Apps.Intento.Actions;
 [ActionList("Translation")]
 public class TranslationActions(InvocationContext invocationContext, IFileManagementClient fileManagement) : IntentoInvocable(invocationContext)
 {
+    private const string IntentoTranslationTool = "Intento";
+
     [BlueprintActionDefinition(BlueprintAction.TranslateText)]
     [Action("Translate text", Description = "Translate text")]
     public async Task<TranslateTextResponse> TranslateText([ActionParameter] TranslateTextRequest input)
@@ -68,7 +68,14 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
         try
         {
             using var stream = await fileManagement.DownloadAsync(input.File);
-            var content = await Transformation.Parse(stream, input.File.Name);
+            var loadResult = Transformation.Load(stream, input.File.Name, input.File.ContentType);
+            if (!loadResult.Success)
+            {
+                throw new PluginMisconfigurationException(
+                    "The file format is not supported by the Blackbird interoperable strategy.");
+            }
+
+            var content = loadResult.Value;
 
             return await HandleInteroperableTransformation(content, input);
         }
@@ -147,12 +154,21 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
 
         foreach ((Unit Unit, IEnumerable<(Segment Segment, string Result)> Results) item in processed)
         {
+            var translatedAny = false;
+
             foreach ((Segment Segment, string Result) r in item.Results)
             {
                 if (string.IsNullOrWhiteSpace(r.Result))
                     continue;
 
                 r.Segment.Target = LineElementMapper.MakeLine(r.Result);
+                r.Segment.State = SegmentState.Translated;
+                translatedAny = true;
+            }
+
+            if (translatedAny)
+            {
+                item.Unit.Provenance.Translation.Tool = IntentoTranslationTool;
             }
         }
 
@@ -250,57 +266,13 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
         Transformation content,
         TranslateFileRequest input)
     {
-        if (input.OutputFileHandling?.Equals("original", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            try
-            {
-                var targetContent = content.Target();
-                var outFile = await fileManagement.UploadAsync(
-                    targetContent.Serialize().ToStream(),
-                    targetContent.OriginalMediaType ?? "application/octet-stream",
-                    targetContent.OriginalName ?? input.File.Name);
-
-                return new TranslateFileResponse
-                {
-                    File = outFile
-                };
-            }
-            catch
-            {
-                var xliffFallback = await fileManagement.UploadAsync(
-                    content.Serialize().ToStream(),
-                    MediaTypes.Xliff,
-                    content.XliffFileName);
-
-                return new TranslateFileResponse
-                {
-                    File = xliffFallback
-                };
-            }
-        }
-
-        if (input.OutputFileHandling?.Equals("xliff1", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            var xliff1String = Xliff1Serializer.Serialize(content);
-            var file = await fileManagement.UploadAsync(
-                xliff1String.ToStream(),
-                MediaTypes.Xliff,
-                content.XliffFileName);
-
-            return new TranslateFileResponse
-            {
-                File = file
-            };
-        }
-
-        var resultXliff = await fileManagement.UploadAsync(
-            content.Serialize().ToStream(),
-            MediaTypes.Xliff,
-            content.XliffFileName);
-
         return new TranslateFileResponse
         {
-            File = resultXliff
+            File = await OutputFileHandler.ToOutputFile(
+                fileManagement,
+                content,
+                input.OutputFileHandling,
+                input.File.Name)
         };
     }
 

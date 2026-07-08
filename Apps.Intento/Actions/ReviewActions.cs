@@ -14,7 +14,7 @@ using Blackbird.Filters.Constants;
 using Blackbird.Filters.Enums;
 using Blackbird.Filters.Extensions;
 using Blackbird.Filters.Transformations;
-using Blackbird.Filters.Xliff.Xliff1;
+using Blackbird.Filters.Bilingual.Xliff1;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RestSharp;
@@ -26,6 +26,10 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     : IntentoInvocable(invocationContext)
 {
     private const int IntentoLqaActionBatchSize = 25;
+    private const string IntentoLqaReviewTool = "Intento LQA";
+    private const string IntentoLqaReviewProfileReference = "https://api.inten.to/";
+    private const string IntentoLqaScoreNoteCategory = "intento-lqa:score";
+    private const string IntentoLqaVerdictNoteCategory = "intento-lqa:verdict";
     private static readonly TimeSpan IntentoLqaPostSearchVisibilityDelay = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan IntentoLqaJobPollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan IntentoLqaEvaluationPollInterval = TimeSpan.FromSeconds(5);
@@ -88,7 +92,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             throw new PluginMisconfigurationException("Model is required.");
 
         using var stream = await fileManagement.DownloadAsync(input.File);
-        var content = await Transformation.Parse(stream, input.File.Name);
+        var content = LoadTransformation(stream, input.File);
         var sourceLanguage = ResolveRequiredLanguage(
             input.SourceLanguage,
             content.SourceLanguage,
@@ -209,7 +213,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         var addScoreToSegmentComment = input.AddScoreToSegmentComment ?? true;
 
         using var stream = await fileManagement.DownloadAsync(input.File);
-        var content = await Transformation.Parse(stream, input.File.Name);
+        var content = LoadTransformation(stream, input.File);
         var sourceLanguage = ResolveRequiredLanguage(
             input.SourceLanguage,
             content.SourceLanguage,
@@ -308,7 +312,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             throw new PluginMisconfigurationException("File is required.");
 
         using var stream = await fileManagement.DownloadAsync(input.File);
-        var content = await Transformation.Parse(stream, input.File.Name);
+        var content = LoadTransformation(stream, input.File);
         var sourceLanguage = ResolveRequiredLanguage(
             input.SourceLanguage,
             content.SourceLanguage,
@@ -358,9 +362,9 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         });
 
         var transformationFile = await fileManagement.UploadAsync(
-            content.Serialize().ToStream(),
-            MediaTypes.Xliff,
-            content.XliffFileName);
+            content.ToStream(),
+            MediaTypes.Xliff2,
+            content.BilingualFileName);
 
         return new ReviewFileWithIntentoLqaBackgroundResponse
         {
@@ -380,7 +384,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             throw new PluginMisconfigurationException("Transformation file is required.");
 
         using var stream = await fileManagement.DownloadAsync(input.File);
-        var content = await Transformation.Parse(stream, input.File.Name);
+        var content = LoadTransformation(stream, input.File);
         var backgroundState = GetIntentoLqaBackgroundState(content);
 
         var thresholdConfig = ResolveThresholdConfiguration(
@@ -818,7 +822,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         return items;
     }
 
-    private static void AddIntentoNotes(Unit unit, JArray? errors, string source, HashSet<string> recordedNotes)
+    private static void AddIntentoNotes(Unit unit, Segment segment, JArray? errors, string source, HashSet<string> recordedNotes)
     {
         if (errors == null || errors.Count == 0)
             return;
@@ -840,14 +844,15 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             var text = string.IsNullOrWhiteSpace(severity)
                 ? description.Trim()
                 : $"[{severity.Trim()}] {description.Trim()}";
-            var noteKey = $"{unit.Id}|{category}|{text}";
+            var noteKey = $"{unit.Id}|{segment.Id}|{category}|{text}";
 
             if (!recordedNotes.Add(noteKey))
                 continue;
 
             unit.Notes.Add(new Note(text)
             {
-                Category = category
+                Category = category,
+                Reference = segment.Id
             });
         }
     }
@@ -928,6 +933,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             {
                 AddIntentoNotes(
                     record.Unit,
+                    record.Segment,
                     evaluation.Details.OpenAiResults["content"]?["errors"] as JArray,
                     source: "intento-openai",
                     recordedNotes);
@@ -937,14 +943,19 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             {
                 AddIntentoNotes(
                     record.Unit,
+                    record.Segment,
                     evaluation.Details.RuleBasedResults["content"] as JArray,
                     source: "intento-rule-based",
                     recordedNotes);
             }
 
-            record.Unit.Quality.ProfileReference = "Intento LQA";
+            record.Unit.Provenance.Review.Tool = IntentoLqaReviewTool;
+            record.Unit.Quality.ProfileReference = IntentoLqaReviewProfileReference;
             if (string.Equals(finalizationMode, IntentoLqaEvaluationHelper.NumericFinalizationMode, StringComparison.OrdinalIgnoreCase))
+            {
                 record.Unit.Quality.ScoreThreshold = numericThreshold;
+                AddIntentoVerdictNote(record.Unit, record.Segment, resolvedEvaluation.ScoreType, recordedNotes);
+            }
 
             if (resolvedEvaluation.NormalizedScore.HasValue)
                 record.Unit.Quality.Score = (float)resolvedEvaluation.NormalizedScore.Value;
@@ -996,15 +1007,34 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             return;
 
         unit.Notes ??= [];
-        const string category = "intento-lqa:score";
-        var noteKey = $"{unit.Id}|{segment.Id}|{category}|{text}";
+        var noteKey = $"{unit.Id}|{segment.Id}|{IntentoLqaScoreNoteCategory}|{text}";
 
         if (!recordedNotes.Add(noteKey))
             return;
 
         unit.Notes.Add(new Note(text)
         {
-            Category = category,
+            Category = IntentoLqaScoreNoteCategory,
+            Reference = segment.Id
+        });
+    }
+
+    private static void AddIntentoVerdictNote(Unit unit, Segment segment, string? scoreType, HashSet<string> recordedNotes)
+    {
+        if (string.IsNullOrWhiteSpace(scoreType))
+            return;
+
+        var text = IntentoLqaEvaluationHelper.FormatVerdictNote(scoreType);
+
+        unit.Notes ??= [];
+        var noteKey = $"{unit.Id}|{segment.Id}|{IntentoLqaVerdictNoteCategory}|{text}";
+
+        if (!recordedNotes.Add(noteKey))
+            return;
+
+        unit.Notes.Add(new Note(text)
+        {
+            Category = IntentoLqaVerdictNoteCategory,
             Reference = segment.Id
         });
     }
@@ -1112,6 +1142,17 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         }
     }
 
+    private static Transformation LoadTransformation(
+        Stream stream,
+        Blackbird.Applications.Sdk.Common.Files.FileReference file)
+    {
+        var loadResult = Transformation.Load(stream, file.Name, file.ContentType);
+        if (!loadResult.Success)
+            throw new PluginMisconfigurationException(loadResult.Error);
+
+        return loadResult.Value;
+    }
+
     private static IntentoLqaBackgroundStateDto? GetIntentoLqaBackgroundState(Transformation content)
     {
         var stateMetadata = content.MetaData.Find(x =>
@@ -1148,38 +1189,11 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         Transformation content,
         ReviewFileRequest input)
     {
-        if (input.OutputFileHandling?.Equals("original", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            try
-            {
-                var targetContent = content.Target();
-                return await fileManagement.UploadAsync(
-                    targetContent.Serialize().ToStream(),
-                    targetContent.OriginalMediaType ?? "application/octet-stream",
-                    targetContent.OriginalName ?? input.File.Name);
-            }
-            catch
-            {
-                return await fileManagement.UploadAsync(
-                    content.Serialize().ToStream(),
-                    MediaTypes.Xliff,
-                    content.XliffFileName);
-            }
-        }
-
-        if (input.OutputFileHandling?.Equals("xliff1", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            var xliff1String = Xliff1Serializer.Serialize(content);
-            return await fileManagement.UploadAsync(
-                xliff1String.ToStream(),
-                MediaTypes.Xliff,
-                content.XliffFileName);
-        }
-
-        return await fileManagement.UploadAsync(
-            content.Serialize().ToStream(),
-            MediaTypes.Xliff,
-            content.XliffFileName);
+        return await OutputFileHandler.ToOutputFile(
+            fileManagement,
+            content,
+            input.OutputFileHandling,
+            input.File.Name);
     }
 
     private sealed class IntentoLqaSegmentRecord
