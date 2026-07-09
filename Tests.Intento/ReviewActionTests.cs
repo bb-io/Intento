@@ -65,6 +65,29 @@ public class ReviewActionTests : TestBase
     }
 
     [TestMethod]
+    public async Task IntentoLQABackground_IsSuccess()
+    {
+        var action = new ReviewActions(InvocationContext, FileManager);
+
+        var result = await action.ReviewFileWithIntentoLqaBackground(new Apps.Intento.Model.Request.ReviewFileWithIntentoLqaBackgroundRequest
+        {
+            SourceLanguage= "en",
+            TargetLanguage = "es",
+            //ScoreThreshold = 0.8,
+            File = new FileReference
+            {
+                Name = "test_AIQE_Es-en-es-T.mxliff",
+                //Name = "3 random sentences_en_uk_ua (4).xlf",
+                //Name = "es_ES_test_aiqe_2.xlsx.xlf"
+                //Name = "test_AIQE_Es-en-es-T-source-variant.mxliff"
+                //Name = "demo.docx_test.xlf"
+            }
+        });
+        Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(result));
+        Assert.IsNotNull(result);
+    }
+
+    [TestMethod]
     public async Task IntentoLQA_SourceVariant_IsSuccess()
     {
         var action = new ReviewActions(InvocationContext, FileManager);
