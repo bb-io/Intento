@@ -53,8 +53,8 @@ public class ReviewActionTests : TestBase
             AddScoreToSegmentComment = false,
             File = new FileReference
             {
-                //Name = "test_AIQE_Es-en-es-T.mxliff",
-                Name = "3 random sentences_en_uk_ua (4).xlf",
+                Name = "test_AIQE_Es-en-es-T.mxliff",
+                //Name = "3 random sentences_en_uk_ua (4).xlf",
                 //Name = "es_ES_test_aiqe_2.xlsx.xlf"
                 //Name = "test_AIQE_Es-en-es-T-source-variant.mxliff"
                 //Name = "demo.docx_test.xlf"

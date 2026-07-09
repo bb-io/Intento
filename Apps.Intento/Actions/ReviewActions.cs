@@ -30,7 +30,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     private const string IntentoLqaReviewProfileReference = "https://api.inten.to/";
     private const string IntentoLqaScoreNoteCategory = "intento-lqa:score";
     private const string IntentoLqaVerdictNoteCategory = "intento-lqa:verdict";
-    private static readonly TimeSpan IntentoLqaPostSearchVisibilityDelay = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan IntentoLqaPostSearchVisibilityDelay = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan IntentoLqaJobPollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan IntentoLqaEvaluationPollInterval = TimeSpan.FromSeconds(5);
     private const string IntentoLqaActionId = "674f27c0d4496a22fb664db8";
