@@ -34,11 +34,11 @@ public class TranslationActionTests : TestBase
             File= new Blackbird.Applications.Sdk.Common.Files.FileReference
             {
                 //Name = "taus.xliff"
-                Name = "Starting a flight.html"
+                Name = "3 random sentences_en_uk_ua (4)_source.xlf"
             },
             FileTranslationStrategy = "blackbird",
             SourceLanguage = "en",
-            TargetLanguage = "es",
+            TargetLanguage = "uk",
             ApplyTranslationStorage = true,
             UpdateTranslationStorage = true,
             DisableNoTrace = true,

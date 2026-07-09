@@ -39,8 +39,10 @@ public class IntentoLqaEvaluationHelperTests
     {
         var numericNote = IntentoLqaEvaluationHelper.FormatNumericScoreNote(0.9234, 0.9);
         var textNote = IntentoLqaEvaluationHelper.FormatTextScoreNote("moderate", "moderate");
+        var verdictNote = IntentoLqaEvaluationHelper.FormatVerdictNote("risky");
 
         Assert.AreEqual("Intento LQA Score: 0.923 (0.900)", numericNote);
         Assert.AreEqual("Intento LQA Verdict: moderate (threshold: moderate)", textNote);
+        Assert.AreEqual("Intento LQA Verdict: risky", verdictNote);
     }
 }

@@ -64,6 +64,9 @@ public static class IntentoLqaEvaluationHelper
     public static string FormatTextScoreNote(string scoreType, string threshold)
         => $"Intento LQA Verdict: {scoreType} (threshold: {threshold})";
 
+    public static string FormatVerdictNote(string scoreType)
+        => $"Intento LQA Verdict: {scoreType}";
+
     private static double NormalizeIntentoScore(double score) => score > 1 ? score / 100d : score;
 
     private static string? NormalizeRiskBand(string? value)
