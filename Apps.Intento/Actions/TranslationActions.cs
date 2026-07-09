@@ -120,9 +120,7 @@ public class TranslationActions(InvocationContext invocationContext, IFileManage
             return true;
         }
 
-        var units = content.GetUnits()
-            .Where(u => u?.Name != null)
-            .ToList();
+        var units = content.GetUnits().ToList();
 
         if (!units.SelectMany(u => u.Segments).Any(SegmentFilter))
             return await BuildFileResponseByFormat(content, input);
