@@ -22,7 +22,7 @@ namespace Apps.Intento.Actions;
 [ActionList("Translation")]
 public class TranslationActions(InvocationContext invocationContext, IFileManagementClient fileManagement) : IntentoInvocable(invocationContext)
 {
-    private const string IntentoTranslationTool = "Intento";
+    private const string IntentoTranslationTool = "Intento translation";
 
     [BlueprintActionDefinition(BlueprintAction.TranslateText)]
     [Action("Translate text", Description = "Translate text")]
