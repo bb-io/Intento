@@ -341,7 +341,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                      .Chunk(IntentoLqaActionBatchSize)
                      .Select(x => x.ToList()))
         {
-            var jobId = await RunIntentoLqaAction(IntentoLqaActionId, targetLanguage, batchSearchKeys, IntentoLqaStoragePath);
+            var jobId = await RunIntentoLqaActionWithDeadJobRetry(IntentoLqaActionId, targetLanguage, batchSearchKeys, IntentoLqaStoragePath);
             jobIds.Add(jobId);
         }
 
@@ -700,12 +700,17 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             $"Intento LQA stored segments were not visible in storage get. Expected {expectedKeys.Count} keys, found {storedSegments.Count} segments.");
     }
 
+    private async Task<StorageActionStatusResponseDto> GetIntentoLqaJobStatus(string jobId)
+    {
+        var request = new RestRequest($"/storage/action/status/{jobId}", Method.Get);
+        return await Client.ExecuteWithErrorHandling<StorageActionStatusResponseDto>(request);
+    }
+
     private async Task<StorageActionStatusResponseDto> WaitForIntentoLqaJob(string jobId)
     {
         for (var i = 0; ; i++)
         {
-            var request = new RestRequest($"/storage/action/status/{jobId}", Method.Get);
-            var status = await Client.ExecuteWithErrorHandling<StorageActionStatusResponseDto>(request);
+            var status = await GetIntentoLqaJobStatus(jobId);
 
             if (string.Equals(status.Status, "success", StringComparison.OrdinalIgnoreCase))
             {
@@ -720,6 +725,23 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         }
     }
 
+    private async Task<string> RunIntentoLqaActionWithDeadJobRetry(
+        string actionId,
+        string targetLanguage,
+        List<string> searchKeys,
+        string operationPath)
+    {
+        var jobId = await RunIntentoLqaAction(actionId, targetLanguage, searchKeys, operationPath);
+        var status = await GetIntentoLqaJobStatus(jobId);
+
+        if (HasZeroCompletedAndFailed(status))
+        {
+            jobId = await RunIntentoLqaAction(actionId, targetLanguage, searchKeys, operationPath);
+        }
+
+        return jobId;
+    }
+
     private async Task<Dictionary<string, SearchSegmentEvaluationDto>> FetchEvaluationsWithSingleRetry(
         string actionId,
         string targetLanguage,
@@ -729,17 +751,13 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         List<string> expectedSearchKeys,
         StorageActionStatusResponseDto jobStatus)
     {
-        try
-        {
-            return await FetchIntentoLqaEvaluations(targetLanguage, sourceLanguage, records, operationPath);
-        }
-        catch (PluginApplicationException ex) when (ShouldRetryEmptyEvaluationMaterialization(jobStatus, ex))
+        if (HasZeroCompletedAndFailed(jobStatus))
         {
             var retryJobId = await RunIntentoLqaAction(actionId, targetLanguage, expectedSearchKeys, operationPath);
             await WaitForIntentoLqaJob(retryJobId);
-
-            return await FetchIntentoLqaEvaluations(targetLanguage, sourceLanguage, records, operationPath);
         }
+
+        return await FetchIntentoLqaEvaluations(targetLanguage, sourceLanguage, records, operationPath);
     }
 
     private async Task<Dictionary<string, SearchSegmentEvaluationDto>> FetchIntentoLqaEvaluations(
@@ -775,16 +793,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
             await Task.Delay(IntentoLqaEvaluationPollInterval);
         }
-    }
-
-    private static bool ShouldRetryEmptyEvaluationMaterialization(
-        StorageActionStatusResponseDto status,
-        PluginApplicationException ex)
-    {
-        return HasZeroCompletedAndFailed(status)
-            && ex.Message.Contains(
-                "Intento LQA evaluations were not materialized in storage after job success",
-                StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool HasZeroCompletedAndFailed(StorageActionStatusResponseDto status)
