@@ -32,6 +32,15 @@ The Intento app enables Blackbird workflows to use Intento for machine translati
 
 - **Get usage statistics**: Retrieves aggregated usage statistics from Intento for either Intento usage or provider usage endpoints.
 
+### Glossaries
+
+- **Search glossaries**: Returns the Intento glossaries available to the connected account.
+- **Create or update glossary**: Creates a bilingual glossary or merges terms into an existing bilingual glossary from a Blackbird interoperable TBX file. Source and target languages are required; for multilingual files, only terms containing the selected language pair are imported. This action creates draft changes and does not publish them automatically.
+- **Download glossary**: Downloads published or draft Intento glossary terms as a Blackbird interoperable TBX file.
+
+The current create or update behavior is an upsert: terms present in the input TBX are added or updated, while terms omitted from the file are not deleted.
+Because Intento terms do not contain locale metadata, each Intento glossary managed by this action must contain exactly one language pair. Run the action separately for every target language.
+
 ## Feedback
 
 Do you want to use this app or do you have feedback on our implementation? Reach out to us using the [established channels](https://www.blackbird.io/) or create an issue.
