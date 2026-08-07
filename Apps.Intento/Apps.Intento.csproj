@@ -4,9 +4,9 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <Product>Intento [Beta]</Product>
+        <Product>Intento</Product>
         <Description>Intento builds AI agents for enterprise localization using machine translation and multilingual generative AI.</Description>
-        <Version>1.0.17</Version>
+        <Version>1.0.18</Version>
         <AssemblyName>Apps.Intento</AssemblyName>
     </PropertyGroup>
 
