@@ -30,4 +30,7 @@ public class CreateOrUpdateGlossaryRequest
     [Display("Target language", Description = "Language code of target terms in the TBX file")]
     [DataSource(typeof(LanguageDataHandler))]
     public string TargetLanguage { get; set; } = string.Empty;
+
+    [Display("Delete missing terms", Description = "Delete terms from an existing Intento glossary when their source term is not present in the imported glossary. Disabled by default")]
+    public bool? DeleteMissingTerms { get; set; }
 }

@@ -34,6 +34,9 @@ public class CreateOrUpdateGlossaryResponse
 
     [Display("Imported terms")]
     public int ImportedTerms { get; set; }
+
+    [Display("Deleted terms")]
+    public int DeletedTerms { get; set; }
 }
 
 public class DownloadGlossaryResponse

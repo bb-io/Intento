@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <Product>Intento</Product>
         <Description>Intento builds AI agents for enterprise localization using machine translation and multilingual generative AI.</Description>
-        <Version>1.0.18</Version>
+        <Version>1.0.19</Version>
         <AssemblyName>Apps.Intento</AssemblyName>
     </PropertyGroup>
 
@@ -20,6 +20,10 @@
         <PackageReference Include="Blackbird.Applications.Sdk.Glossaries.Utils" Version="1.1.2-rc.11933" />
         <PackageReference Include="Blackbird.Applications.Sdk.Utils" Version="1.1.0-rc.8709" />
         <PackageReference Include="Blackbird.Filters" Version="1.2.16" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Tests.Intento" />
     </ItemGroup>
 
 </Project>
