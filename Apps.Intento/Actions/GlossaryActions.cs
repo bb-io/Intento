@@ -251,7 +251,7 @@ public class GlossaryActions(
 
         var response = await Client.ExecuteWithErrorHandling<GlossaryOperationResponseDto>(request);
         EnsureSuccessfulOperation(response, "delete glossary terms");
-        return response.Count ?? sourceTerms.Count;
+        return sourceTerms.Count;
     }
 
     internal static List<string> GetTermsToDelete(
