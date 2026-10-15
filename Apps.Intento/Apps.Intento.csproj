@@ -22,4 +22,8 @@
         <PackageReference Include="Blackbird.Filters" Version="1.2.16" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="Tests.Intento" />
+    </ItemGroup>
+
 </Project>

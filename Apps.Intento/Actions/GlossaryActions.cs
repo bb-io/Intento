@@ -42,14 +42,15 @@ public class GlossaryActions(
         };
     }
 
-    [Action("Create or update glossary", Description = "Create a glossary or merge terms into an existing glossary from a Blackbird interoperable TBX file")]
+    [Action("Create or update glossary", Description = "Create a glossary or import terms into an existing glossary from a Blackbird interoperable TBX file, optionally deleting terms missing from the import")]
     public async Task<CreateOrUpdateGlossaryResponse> CreateOrUpdateGlossary(
         [ActionParameter] CreateOrUpdateGlossaryRequest input)
     {
         if (input.Glossary == null)
             throw new PluginMisconfigurationException("Glossary file is required.");
 
-        var existingGlossary = await GetExistingGlossary(input.GlossaryId);
+        var deleteMissingTerms = input.DeleteMissingTerms ?? false;
+        var existingGlossary = await GetExistingGlossary(input.GlossaryId, deleteMissingTerms);
         var glossaryType = ResolveGlossaryType(input.Type, existingGlossary?.Type);
         var sourceLanguage = NormalizeRequiredLanguage(input.SourceLanguage, "Source language");
         var targetLanguage = NormalizeRequiredLanguage(input.TargetLanguage, "Target language");
@@ -77,12 +78,18 @@ public class GlossaryActions(
             sourceLanguage,
             targetLanguage);
 
+        var termsToDelete = existingGlossary == null || !deleteMissingTerms
+            ? []
+            : GetTermsToDelete(existingGlossary.Terms, terms.Select(x => x.Source));
+
         var importedTerms = await ImportTerms(glossaryId, terms);
+        var deletedTerms = await DeleteTerms(glossaryId, termsToDelete);
 
         return new CreateOrUpdateGlossaryResponse
         {
             GlossaryId = glossaryId.ToString(),
-            ImportedTerms = importedTerms
+            ImportedTerms = importedTerms,
+            DeletedTerms = deletedTerms
         };
     }
 
@@ -147,14 +154,19 @@ public class GlossaryActions(
         };
     }
 
-    private async Task<GlossaryDto?> GetExistingGlossary(string? glossaryId)
+    private async Task<GlossaryDto?> GetExistingGlossary(
+        string? glossaryId,
+        bool includeDraftTerms)
     {
         if (string.IsNullOrWhiteSpace(glossaryId))
             return null;
 
         var id = ParseGlossaryId(glossaryId);
         var request = new RestRequest($"/ai/text/glossaries/v2/typed/{id}", Method.Get)
-            .AddQueryParameter("terms", false);
+            .AddQueryParameter("terms", includeDraftTerms);
+
+        if (includeDraftTerms)
+            request.AddQueryParameter("draft", true);
 
         return await Client.ExecuteWithErrorHandling<GlossaryDto>(request);
     }
@@ -219,6 +231,46 @@ public class GlossaryActions(
         var response = await Client.ExecuteWithErrorHandling<GlossaryOperationResponseDto>(request);
         EnsureSuccessfulOperation(response, "import glossary terms");
         return response.Count ?? terms.Count;
+    }
+
+    private async Task<int> DeleteTerms(int glossaryId, List<string> sourceTerms)
+    {
+        if (sourceTerms.Count == 0)
+            return 0;
+
+        var request = new RestRequest(
+            $"/ai/text/glossaries/v2/typed/{glossaryId}",
+            Method.Patch);
+        var body = JsonConvert.SerializeObject(new
+        {
+            delete = sourceTerms.Select(source => new { src = source }),
+            origin = "Updated by Blackbird",
+            sourceUpdate = "Glossary import"
+        });
+        request.AddStringBody(body, RestSharp.ContentType.Json);
+
+        var response = await Client.ExecuteWithErrorHandling<GlossaryOperationResponseDto>(request);
+        EnsureSuccessfulOperation(response, "delete glossary terms");
+        return response.Count ?? sourceTerms.Count;
+    }
+
+    internal static List<string> GetTermsToDelete(
+        IEnumerable<GlossaryTermDto> existingTerms,
+        IEnumerable<string> importedSourceTerms)
+    {
+        var importedSources = new HashSet<string>(
+            importedSourceTerms
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        return existingTerms
+            .Where(x => !string.Equals(x.Status, "DELETED", StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.Term?.Source?.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x) && !importedSources.Contains(x))
+            .Select(x => x!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static List<GlossaryTermPair> ExtractTerms(

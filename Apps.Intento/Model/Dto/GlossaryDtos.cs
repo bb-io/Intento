@@ -47,6 +47,9 @@ public class GlossaryLanguagePairDto
 
 public class GlossaryTermDto
 {
+    [JsonProperty("status")]
+    public string? Status { get; set; }
+
     [JsonProperty("term")]
     public GlossaryTermValueDto? Term { get; set; }
 }
