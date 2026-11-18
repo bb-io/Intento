@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <Product>Intento</Product>
         <Description>Intento builds AI agents for enterprise localization using machine translation and multilingual generative AI.</Description>
-        <Version>1.0.19</Version>
+        <Version>1.0.20</Version>
         <AssemblyName>Apps.Intento</AssemblyName>
     </PropertyGroup>
 
@@ -26,4 +26,7 @@
         <InternalsVisibleTo Include="Tests.Intento" />
     </ItemGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="..\README.md" Link="README.md" CopyToOutputDirectory="Always" />
+    </ItemGroup>
 </Project>
