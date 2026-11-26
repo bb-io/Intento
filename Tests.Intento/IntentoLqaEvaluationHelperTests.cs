@@ -37,12 +37,34 @@ public class IntentoLqaEvaluationHelperTests
     [TestMethod]
     public void Formatters_UseAgreedText()
     {
-        var numericNote = IntentoLqaEvaluationHelper.FormatNumericScoreNote(0.9234, 0.9);
-        var textNote = IntentoLqaEvaluationHelper.FormatTextScoreNote("moderate", "moderate");
+        var numericNote = IntentoLqaEvaluationHelper.FormatNumericScoreNote(0.9234);
+        var textNote = IntentoLqaEvaluationHelper.FormatTextScoreNote("moderate");
         var verdictNote = IntentoLqaEvaluationHelper.FormatVerdictNote("risky");
 
-        Assert.AreEqual("Intento LQA Score: 0.923 (0.900)", numericNote);
-        Assert.AreEqual("Intento LQA Verdict: moderate (threshold: moderate)", textNote);
-        Assert.AreEqual("Intento LQA Verdict: risky", verdictNote);
+        Assert.AreEqual("Intento LQA Score: 0.923", numericNote);
+        Assert.AreEqual("Intento LQA Verdict: moderate risk", textNote);
+        Assert.AreEqual("Intento LQA Verdict: high risk", verdictNote);
+    }
+
+    [TestMethod]
+    public void FormatVerdictNote_MapsIntentoBandsToRiskLabels()
+    {
+        Assert.AreEqual("Intento LQA Verdict: low risk", IntentoLqaEvaluationHelper.FormatVerdictNote("low"));
+        Assert.AreEqual("Intento LQA Verdict: moderate risk", IntentoLqaEvaluationHelper.FormatVerdictNote("Moderate"));
+        Assert.AreEqual("Intento LQA Verdict: high risk", IntentoLqaEvaluationHelper.FormatVerdictNote("risky"));
+    }
+
+    [TestMethod]
+    public void StateQualifierFilter_IsOptionalAndCaseInsensitive()
+    {
+        var filter = IntentoLqaEvaluationHelper.NormalizeStateQualifiers(
+            [" mt-suggestion ", "human-translation", "MT-SUGGESTION"]);
+
+        Assert.IsNotNull(filter);
+        Assert.AreEqual(2, filter.Count);
+        Assert.IsTrue(IntentoLqaEvaluationHelper.MatchesStateQualifier("MT-SUGGESTION", filter));
+        Assert.IsFalse(IntentoLqaEvaluationHelper.MatchesStateQualifier("tm-suggestion", filter));
+        Assert.IsFalse(IntentoLqaEvaluationHelper.MatchesStateQualifier(null, filter));
+        Assert.IsTrue(IntentoLqaEvaluationHelper.MatchesStateQualifier(null, null));
     }
 }

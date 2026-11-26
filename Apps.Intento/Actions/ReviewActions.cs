@@ -25,7 +25,6 @@ namespace Apps.Intento.Actions;
 public class ReviewActions(InvocationContext invocationContext, IFileManagementClient fileManagement)
     : IntentoInvocable(invocationContext)
 {
-    private const int IntentoLqaActionBatchSize = 25;
     private const string IntentoLqaReviewTool = "Intento LQA";
     private const string IntentoLqaReviewProfileReference = "https://api.inten.to/";
     private const string IntentoLqaScoreNoteCategory = "intento-lqa:score";
@@ -33,8 +32,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     private static readonly TimeSpan IntentoLqaPostSearchVisibilityDelay = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan IntentoLqaJobPollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan IntentoLqaEvaluationPollInterval = TimeSpan.FromSeconds(5);
-    private const string IntentoLqaActionId = "674f27c0d4496a22fb664db8";
-    private const string IntentoLqaStoragePath = "https://blackbird.io";
 
     [BlueprintActionDefinition(BlueprintAction.ReviewText)]
     [Action("Review text", Description = "Review translation quality for source and target text using IntentoQA")]
@@ -211,6 +208,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         var thresholdConfig = ResolveThresholdConfiguration(input.ScoreThreshold, input.TextScoreThreshold);
         var addScoreToSegmentComment = input.AddScoreToSegmentComment ?? true;
+        var addErrorComments = input.AddErrorComments ?? true;
 
         using var stream = await fileManagement.DownloadAsync(input.File);
         var content = LoadTransformation(stream, input.File);
@@ -225,8 +223,12 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             null,
             "Target language is not defined. Provide Target language.");
 
-        var operationPath = IntentoLqaStoragePath;
-        var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage);
+        var operationPath = IntentoLqaConstants.StoragePath;
+        var segmentRecords = BuildIntentoLqaSegmentRecords(
+            content,
+            sourceLanguage,
+            targetLanguage,
+            input.StateQualifiers);
         if (!segmentRecords.Any())
             throw new PluginApplicationException("No reviewable segments were found in the file.");
 
@@ -234,7 +236,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         await WaitForStoredSegmentsReady(targetLanguage, segmentRecords, operationPath);
         await Task.Delay(IntentoLqaPostSearchVisibilityDelay);
 
-        var actionId = IntentoLqaActionId;
+        var actionId = IntentoLqaConstants.ActionId;
         var expectedSearchKeys = segmentRecords
             .Select(x => x.SearchKey)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -242,7 +244,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         var evaluations = new Dictionary<string, SearchSegmentEvaluationDto>(StringComparer.OrdinalIgnoreCase);
         var searchKeyBatches = expectedSearchKeys
-            .Chunk(IntentoLqaActionBatchSize)
+            .Chunk(IntentoLqaConstants.ActionBatchSize)
             .Select(x => x.ToList())
             .ToList();
 
@@ -279,7 +281,8 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                 thresholdConfig.FinalizationMode,
                 thresholdConfig.NumericThreshold,
                 thresholdConfig.TextScoreThreshold,
-                addScoreToSegmentComment);
+                addScoreToSegmentComment,
+                addErrorComments);
 
         var outputFileHandling = string.Equals(input.OutputFileHandling, "xliff1", StringComparison.OrdinalIgnoreCase)
             ? "xliff1"
@@ -323,12 +326,16 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             content.TargetLanguage,
             null,
             "Target language is not defined. Provide Target language.");
-        var segmentRecords = BuildIntentoLqaSegmentRecords(content, sourceLanguage, targetLanguage);
+        var segmentRecords = BuildIntentoLqaSegmentRecords(
+            content,
+            sourceLanguage,
+            targetLanguage,
+            input.StateQualifiers);
         if (!segmentRecords.Any())
             throw new PluginApplicationException("No reviewable segments were found in the file.");
 
-        await StoreSegments(segmentRecords, IntentoLqaStoragePath);
-        await WaitForStoredSegmentsReady(targetLanguage, segmentRecords, IntentoLqaStoragePath);
+        await StoreSegments(segmentRecords, IntentoLqaConstants.StoragePath);
+        await WaitForStoredSegmentsReady(targetLanguage, segmentRecords, IntentoLqaConstants.StoragePath);
         await Task.Delay(IntentoLqaPostSearchVisibilityDelay);
 
         var expectedSearchKeys = segmentRecords
@@ -338,10 +345,10 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
         var jobIds = new List<string>();
         foreach (var batchSearchKeys in expectedSearchKeys
-                     .Chunk(IntentoLqaActionBatchSize)
+                     .Chunk(IntentoLqaConstants.ActionBatchSize)
                      .Select(x => x.ToList()))
         {
-            var jobId = await RunIntentoLqaActionWithDeadJobRetry(IntentoLqaActionId, targetLanguage, batchSearchKeys, IntentoLqaStoragePath);
+            var jobId = await RunIntentoLqaAction(IntentoLqaConstants.ActionId, targetLanguage, batchSearchKeys, IntentoLqaConstants.StoragePath);
             jobIds.Add(jobId);
         }
 
@@ -391,6 +398,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             input.ScoreThreshold,
             input.TextScoreThreshold);
         var addScoreToSegmentComment = input.AddScoreToSegmentComment ?? true;
+        var addErrorComments = input.AddErrorComments ?? true;
 
         var sourceLanguage = ResolveRequiredLanguage(
             input.SourceLanguage,
@@ -420,7 +428,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             targetLanguage,
             sourceLanguage,
             recordsToEvaluate,
-            IntentoLqaStoragePath);
+            IntentoLqaConstants.StoragePath);
 
         var (processedSegmentsCount, finalizedSegmentsCount, underThresholdCount, totalScore, numericScoreCount) =
             ApplyIntentoLqaEvaluations(
@@ -429,7 +437,8 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                 thresholdConfig.FinalizationMode,
                 thresholdConfig.NumericThreshold,
                 thresholdConfig.TextScoreThreshold,
-                addScoreToSegmentComment);
+                addScoreToSegmentComment,
+                addErrorComments);
 
         var outputFileHandling = string.Equals(input.OutputFileHandling, "xliff1", StringComparison.OrdinalIgnoreCase)
             ? "xliff1"
@@ -572,10 +581,12 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
     private List<IntentoLqaSegmentRecord> BuildIntentoLqaSegmentRecords(
         Transformation content,
         string sourceLanguage,
-        string targetLanguage)
+        string targetLanguage,
+        IEnumerable<string>? stateQualifiers = null)
     {
         var records = new List<IntentoLqaSegmentRecord>();
         var units = content.GetUnits().ToList();
+        var stateQualifierFilter = IntentoLqaEvaluationHelper.NormalizeStateQualifiers(stateQualifiers);
 
         for (var unitIndex = 0; unitIndex < units.Count; unitIndex++)
         {
@@ -583,7 +594,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             for (var segmentIndex = 0; segmentIndex < unit.Segments.Count; segmentIndex++)
             {
                 var segment = unit.Segments[segmentIndex];
-                if (!ShouldReviewSegment(segment))
+                if (!ShouldReviewSegment(segment, stateQualifierFilter))
                     continue;
 
                 var source = LineElementMapper.RenderLine(segment.Source);
@@ -723,23 +734,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
 
             await Task.Delay(IntentoLqaJobPollInterval);
         }
-    }
-
-    private async Task<string> RunIntentoLqaActionWithDeadJobRetry(
-        string actionId,
-        string targetLanguage,
-        List<string> searchKeys,
-        string operationPath)
-    {
-        var jobId = await RunIntentoLqaAction(actionId, targetLanguage, searchKeys, operationPath);
-        var status = await GetIntentoLqaJobStatus(jobId);
-
-        if (HasZeroCompletedAndFailed(status))
-        {
-            jobId = await RunIntentoLqaAction(actionId, targetLanguage, searchKeys, operationPath);
-        }
-
-        return jobId;
     }
 
     private async Task<Dictionary<string, SearchSegmentEvaluationDto>> FetchEvaluationsWithSingleRetry(
@@ -894,9 +888,15 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         throw new PluginMisconfigurationException(missingMessage);
     }
 
-    private static bool ShouldReviewSegment(Segment segment)
+    private static bool ShouldReviewSegment(Segment segment, IReadOnlySet<string>? stateQualifiers)
     {
         if (segment == null || segment.IsIgnorbale || segment.State == SegmentState.Final)
+            return false;
+
+        var stateQualifier = segment.TargetAttributes
+            .FirstOrDefault(x => x.Name == "state-qualifier")?
+            .Value;
+        if (!IntentoLqaEvaluationHelper.MatchesStateQualifier(stateQualifier, stateQualifiers))
             return false;
 
         var source = LineElementMapper.RenderLine(segment.Source);
@@ -912,7 +912,8 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
             string finalizationMode,
             double numericThreshold,
             string textScoreThreshold,
-            bool addScoreToSegmentComment)
+            bool addScoreToSegmentComment,
+            bool addErrorComments)
     {
         var processedSegmentsCount = 0;
         var finalizedSegmentsCount = 0;
@@ -937,7 +938,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                 numericScoreCount++;
             }
 
-            if (evaluation.Details?.OpenAiResults != null)
+            if (addErrorComments && evaluation.Details?.OpenAiResults != null)
             {
                 AddIntentoNotes(
                     record.Unit,
@@ -947,7 +948,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                     recordedNotes);
             }
 
-            if (evaluation.Details?.RuleBasedResults != null)
+            if (addErrorComments && evaluation.Details?.RuleBasedResults != null)
             {
                 AddIntentoNotes(
                     record.Unit,
@@ -975,8 +976,6 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                     record.Segment,
                     finalizationMode,
                     resolvedEvaluation,
-                    numericThreshold,
-                    textScoreThreshold,
                     recordedNotes);
             }
 
@@ -999,16 +998,14 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         Segment segment,
         string finalizationMode,
         IntentoLqaResolvedEvaluation evaluation,
-        double numericThreshold,
-        string textScoreThreshold,
         HashSet<string> recordedNotes)
     {
         string? text = string.Equals(finalizationMode, IntentoLqaEvaluationHelper.TextFinalizationMode, StringComparison.OrdinalIgnoreCase)
             ? evaluation.ScoreType == null
                 ? null
-                : IntentoLqaEvaluationHelper.FormatTextScoreNote(evaluation.ScoreType, textScoreThreshold)
+                : IntentoLqaEvaluationHelper.FormatTextScoreNote(evaluation.ScoreType)
             : evaluation.NormalizedScore.HasValue
-                ? IntentoLqaEvaluationHelper.FormatNumericScoreNote(evaluation.NormalizedScore.Value, numericThreshold)
+                ? IntentoLqaEvaluationHelper.FormatNumericScoreNote(evaluation.NormalizedScore.Value)
                 : null;
 
         if (string.IsNullOrWhiteSpace(text))

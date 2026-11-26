@@ -127,5 +127,13 @@ public class DataHandlerTests : TestBase
 
         Assert.AreEqual(3, result.Count);
         CollectionAssert.AreEquivalent(new[] { "low", "moderate", "risky" }, result.Select(x => x.Value).ToList());
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                "low risk | finalize only low risk",
+                "moderate risk | finalize low + moderate risk",
+                "high risk | finalize all"
+            },
+            result.Select(x => x.DisplayName).ToList());
     }
 }
