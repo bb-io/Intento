@@ -32,6 +32,12 @@ public class ReviewFileWithIntentoLqaRequest
     [Display("Add score as note", Description = "When enabled, adds the chosen Intento LQA score or verdict to segment notes.")]
     public bool? AddScoreToSegmentComment { get; set; } = true;
 
+    [Display("Add error comments as notes", Description = "When enabled, adds Intento LQA error details to segment notes.")]
+    public bool? AddErrorComments { get; set; } = true;
+
+    [Display("State qualifiers", Description = "Only review segments whose target state-qualifier matches one of the provided values. Leave empty to review all eligible segments.")]
+    public IEnumerable<string>? StateQualifiers { get; set; }
+
     [Display("Output file handling", Description = "original = return original format; otherwise returns XLIFF")]
     [StaticDataSource(typeof(ProcessFileFormatHandler))]
     public string? OutputFileHandling { get; set; }

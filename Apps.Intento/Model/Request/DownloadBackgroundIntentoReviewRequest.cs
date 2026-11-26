@@ -35,6 +35,9 @@ public class DownloadBackgroundIntentoReviewRequest
     [Display("Add score as note", Description = "When enabled, adds the chosen Intento LQA score or verdict to segment notes.")]
     public bool? AddScoreToSegmentComment { get; set; } = true;
 
+    [Display("Add error comments as notes", Description = "When enabled, adds Intento LQA error details to segment notes.")]
+    public bool? AddErrorComments { get; set; } = true;
+
     [Display("Output file handling", Description = "original = return original format; otherwise returns XLIFF")]
     [StaticDataSource(typeof(ProcessFileFormatHandler))]
     public string? OutputFileHandling { get; set; }

@@ -1,3 +1,4 @@
+using Apps.Intento.Constants;
 using Apps.Intento.Model.Dto;
 using Apps.Intento.Model.Request;
 using Apps.Intento.Model.Response;
@@ -5,6 +6,7 @@ using Blackbird.Applications.Sdk.Common.Exceptions;
 using Blackbird.Applications.Sdk.Common.Invocation;
 using Blackbird.Applications.Sdk.Common.Polling;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RestSharp;
 
 namespace Apps.Intento.Polling;
@@ -12,8 +14,6 @@ namespace Apps.Intento.Polling;
 [PollingEventList]
 public class IntentoLqaPollingList(InvocationContext invocationContext) : IntentoInvocable(invocationContext)
 {
-    private const string IntentoLqaStoragePath = "https://blackbird.io";
-
     [PollingEvent("On background review with Intento LQA finished", "Triggered when all provided Intento LQA search keys have evaluations.")]
     public async Task<PollingEventResponse<IntentoLqaReviewMemory, IntentoLqaPollingResponse>> OnIntentoLqaSegmentReviewFinished(
         PollingEventRequest<IntentoLqaReviewMemory> request,
@@ -42,21 +42,30 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
             throw new PluginMisconfigurationException("Source language is required.");
 
         var lastPollingTime = DateTime.UtcNow;
-        var noFlightResponse = new PollingEventResponse<IntentoLqaReviewMemory, IntentoLqaPollingResponse>
-        {
-            FlyBird = false,
-            Memory = new()
-            {
-                LastPollingTime = lastPollingTime,
-                Triggered = false
-            }
-        };
+        var searchKeyBatches = searchKeys
+            .Chunk(IntentoLqaConstants.ActionBatchSize)
+            .Select(x => x.ToList())
+            .ToList();
+
+        if (jobIds.Count != searchKeyBatches.Count)
+            throw new PluginMisconfigurationException(
+                "The number of job IDs does not match the number of Intento LQA search key batches.");
+
+        var activeJobIds = request.Memory?.ActiveJobIds
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+        if (activeJobIds?.Count != jobIds.Count)
+            activeJobIds = jobIds;
+
+        var retriedBatchIndexes = request.Memory?.RetriedBatchIndexes?.ToHashSet() ?? [];
+        var triggered = request.Memory?.Triggered ?? false;
 
         if (request.Memory is null)
-            return noFlightResponse;
+            return CreateNoFlightResponse(lastPollingTime, activeJobIds, retriedBatchIndexes, triggered);
 
-        foreach (var jobId in jobIds)
+        for (var batchIndex = 0; batchIndex < activeJobIds.Count; batchIndex++)
         {
+            var jobId = activeJobIds[batchIndex];
             var statusRequest = new RestRequest($"/storage/action/status/{jobId}", Method.Get);
             var status = await Client.ExecuteWithErrorHandling<StorageActionStatusResponseDto>(statusRequest);
 
@@ -65,7 +74,21 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
                     $"Intento LQA job failed. Status response: {JsonConvert.SerializeObject(status)}");
 
             if (!string.Equals(status.Status, "success", StringComparison.OrdinalIgnoreCase))
-                return noFlightResponse;
+                return CreateNoFlightResponse(lastPollingTime, activeJobIds, retriedBatchIndexes, triggered);
+
+            if (HasZeroCompletedAndFailed(status))
+            {
+                if (retriedBatchIndexes.Contains(batchIndex))
+                    throw new PluginApplicationException(
+                        $"Intento LQA job returned no completed or failed results after retry. Status response: {JsonConvert.SerializeObject(status)}");
+
+                activeJobIds[batchIndex] = await RunIntentoLqaAction(
+                    input.TargetLanguage,
+                    searchKeyBatches[batchIndex]);
+                retriedBatchIndexes.Add(batchIndex);
+
+                return CreateNoFlightResponse(lastPollingTime, activeJobIds, retriedBatchIndexes, triggered);
+            }
         }
 
         var items = await GetSegmentsBySearchKeys(
@@ -78,22 +101,71 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         if (!searchKeys.All(evaluatedKeys.Contains))
-            return noFlightResponse;
+            return CreateNoFlightResponse(lastPollingTime, activeJobIds, retriedBatchIndexes, triggered);
 
         return new()
         {
-            FlyBird = !request.Memory.Triggered,
+            FlyBird = !triggered,
             Result = new()
             {
-                JobIds = jobIds,
+                JobIds = activeJobIds,
                 SearchKeys = searchKeys
             },
             Memory = new()
             {
                 LastPollingTime = lastPollingTime,
-                Triggered = true
+                Triggered = true,
+                ActiveJobIds = activeJobIds,
+                RetriedBatchIndexes = retriedBatchIndexes.ToList()
             }
         };
+    }
+
+    private static PollingEventResponse<IntentoLqaReviewMemory, IntentoLqaPollingResponse> CreateNoFlightResponse(
+        DateTime lastPollingTime,
+        List<string> activeJobIds,
+        HashSet<int> retriedBatchIndexes,
+        bool triggered)
+    {
+        return new()
+        {
+            FlyBird = false,
+            Memory = new()
+            {
+                LastPollingTime = lastPollingTime,
+                Triggered = triggered,
+                ActiveJobIds = activeJobIds,
+                RetriedBatchIndexes = retriedBatchIndexes.ToList()
+            }
+        };
+    }
+
+    private async Task<string> RunIntentoLqaAction(string targetLanguage, List<string> searchKeys)
+    {
+        var request = new RestRequest("/storage/action/run", Method.Post);
+        request.AddHeader("x-storage-path", IntentoLqaConstants.StoragePath);
+        var payload = new JObject
+        {
+            ["to"] = targetLanguage,
+            ["searchKeys"] = JArray.FromObject(searchKeys),
+            ["actionId"] = IntentoLqaConstants.ActionId,
+            ["variables"] = new JObject()
+        };
+
+        request.AddStringBody(payload.ToString(Formatting.None), ContentType.Json);
+
+        var response = await Client.ExecuteWithErrorHandling<RunStorageActionResponseDto>(request);
+        if (string.IsNullOrWhiteSpace(response.JobId))
+            throw new PluginApplicationException("Intento did not return job id.");
+
+        return response.JobId;
+    }
+
+    private static bool HasZeroCompletedAndFailed(StorageActionStatusResponseDto status)
+    {
+        var completedCount = status.Results?.Completed?.Count ?? 0;
+        var failedCount = status.Results?.Failed?.Count ?? 0;
+        return completedCount == 0 && failedCount == 0;
     }
 
     private async Task<List<SearchSegmentItemDto>> GetSegmentsBySearchKeys(
@@ -107,7 +179,7 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
                      .Chunk(50))
         {
             var request = new RestRequest($"/storage/segment/{targetLanguage}", Method.Get);
-            request.AddHeader("x-storage-path", IntentoLqaStoragePath);
+            request.AddHeader("x-storage-path", IntentoLqaConstants.StoragePath);
             foreach (var searchKey in batch)
             {
                 request.AddQueryParameter("searchKeys[]", searchKey);

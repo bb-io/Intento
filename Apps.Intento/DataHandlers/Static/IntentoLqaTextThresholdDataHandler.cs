@@ -9,9 +9,9 @@ public class IntentoLqaTextThresholdDataHandler : IStaticDataSourceItemHandler
     {
         return
         [
-            new DataSourceItem("low", "low | finalize only low"),
-            new DataSourceItem("moderate", "moderate | finalize low + moderate"),
-            new DataSourceItem("risky", "risky | finalize all")
+            new DataSourceItem("low", "low risk | finalize only low risk"),
+            new DataSourceItem("moderate", "moderate risk | finalize low + moderate risk"),
+            new DataSourceItem("risky", "high risk | finalize all")
         ];
     }
 }

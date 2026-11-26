@@ -56,16 +56,46 @@ public static class IntentoLqaEvaluationHelper
         return scoreRank <= thresholdRank;
     }
 
-    public static string FormatNumericScoreNote(double score, double threshold)
+    public static string FormatNumericScoreNote(double score)
         => string.Create(
             CultureInfo.InvariantCulture,
-            $"Intento LQA Score: {score:F3} ({threshold:F3})");
+            $"Intento LQA Score: {score:F3}");
 
-    public static string FormatTextScoreNote(string scoreType, string threshold)
-        => $"Intento LQA Verdict: {scoreType} (threshold: {threshold})";
+    public static string FormatTextScoreNote(string scoreType)
+        => $"Intento LQA Verdict: {FormatRiskLabel(scoreType)}";
 
     public static string FormatVerdictNote(string scoreType)
-        => $"Intento LQA Verdict: {scoreType}";
+        => $"Intento LQA Verdict: {FormatRiskLabel(scoreType)}";
+
+    private static string FormatRiskLabel(string scoreType)
+    {
+        return NormalizeRiskBand(scoreType) switch
+        {
+            LowRiskBand => "low risk",
+            ModerateRiskBand => "moderate risk",
+            RiskyRiskBand => "high risk",
+            _ => scoreType.Trim()
+        };
+    }
+
+    internal static HashSet<string>? NormalizeStateQualifiers(IEnumerable<string>? stateQualifiers)
+    {
+        var normalized = stateQualifiers?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return normalized?.Count > 0 ? normalized : null;
+    }
+
+    internal static bool MatchesStateQualifier(string? stateQualifier, IReadOnlySet<string>? stateQualifiers)
+    {
+        if (stateQualifiers == null || stateQualifiers.Count == 0)
+            return true;
+
+        return !string.IsNullOrWhiteSpace(stateQualifier)
+            && stateQualifiers.Contains(stateQualifier.Trim());
+    }
 
     private static double NormalizeIntentoScore(double score) => score > 1 ? score / 100d : score;
 
