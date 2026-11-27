@@ -206,6 +206,9 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         if (input.File == null)
             throw new PluginMisconfigurationException("File is required.");
 
+        if (string.IsNullOrWhiteSpace(input.ActionId))
+            throw new PluginMisconfigurationException("LQA action is required.");
+
         var thresholdConfig = ResolveThresholdConfiguration(input.ScoreThreshold, input.TextScoreThreshold);
         var addScoreToSegmentComment = input.AddScoreToSegmentComment ?? true;
         var addErrorComments = input.AddErrorComments ?? true;
@@ -236,7 +239,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         await WaitForStoredSegmentsReady(targetLanguage, segmentRecords, operationPath);
         await Task.Delay(IntentoLqaPostSearchVisibilityDelay);
 
-        var actionId = IntentoLqaConstants.ActionId;
+        var actionId = input.ActionId;
         var expectedSearchKeys = segmentRecords
             .Select(x => x.SearchKey)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -314,6 +317,9 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         if (input.File == null)
             throw new PluginMisconfigurationException("File is required.");
 
+        if (string.IsNullOrWhiteSpace(input.ActionId))
+            throw new PluginMisconfigurationException("LQA action is required.");
+
         using var stream = await fileManagement.DownloadAsync(input.File);
         var content = LoadTransformation(stream, input.File);
         var sourceLanguage = ResolveRequiredLanguage(
@@ -348,12 +354,13 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
                      .Chunk(IntentoLqaConstants.ActionBatchSize)
                      .Select(x => x.ToList()))
         {
-            var jobId = await RunIntentoLqaAction(IntentoLqaConstants.ActionId, targetLanguage, batchSearchKeys, IntentoLqaConstants.StoragePath);
+            var jobId = await RunIntentoLqaAction(input.ActionId, targetLanguage, batchSearchKeys, IntentoLqaConstants.StoragePath);
             jobIds.Add(jobId);
         }
 
         StoreIntentoLqaBackgroundState(content, new()
         {
+            ActionId = input.ActionId,
             SourceLanguage = sourceLanguage,
             TargetLanguage = targetLanguage,
             JobIds = jobIds,
@@ -376,6 +383,7 @@ public class ReviewActions(InvocationContext invocationContext, IFileManagementC
         return new ReviewFileWithIntentoLqaBackgroundResponse
         {
             File = transformationFile,
+            ActionId = input.ActionId,
             JobIds = jobIds,
             SearchKeys = expectedSearchKeys,
             TargetLanguage = targetLanguage,

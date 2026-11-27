@@ -21,6 +21,10 @@ public class ReviewFileWithIntentoLqaRequest
     [DataSource(typeof(LanguageDataHandler))]
     public string? SourceLanguage { get; set; }
 
+    [Display("LQA action", Description = "Select the Intento LQA workflow configured for the required language pair under the connected API key.")]
+    [DataSource(typeof(StorageActionDataHandler))]
+    public string ActionId { get; set; } = string.Empty;
+
     [Display("Score threshold")]
     [StaticDataSource(typeof(ThresholdDataHandler))]
     public double? ScoreThreshold { get; set; }

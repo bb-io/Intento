@@ -4,6 +4,9 @@ namespace Apps.Intento.Model.Request;
 
 public class OnIntentoLqaSegmentReviewFinishedRequest
 {
+    [Display("Action ID")]
+    public string ActionId { get; set; } = string.Empty;
+
     [Display("Job IDs")]
     public IEnumerable<string> JobIds { get; set; } = [];
 

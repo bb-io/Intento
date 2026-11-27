@@ -35,6 +35,9 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
         if (searchKeys.Count == 0)
             throw new PluginMisconfigurationException("At least one search key must be provided.");
 
+        if (string.IsNullOrWhiteSpace(input.ActionId))
+            throw new PluginMisconfigurationException("Action ID is required.");
+
         if (string.IsNullOrWhiteSpace(input.TargetLanguage))
             throw new PluginMisconfigurationException("Target language is required.");
 
@@ -83,6 +86,7 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
                         $"Intento LQA job returned no completed or failed results after retry. Status response: {JsonConvert.SerializeObject(status)}");
 
                 activeJobIds[batchIndex] = await RunIntentoLqaAction(
+                    input.ActionId,
                     input.TargetLanguage,
                     searchKeyBatches[batchIndex]);
                 retriedBatchIndexes.Add(batchIndex);
@@ -108,6 +112,7 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
             FlyBird = !triggered,
             Result = new()
             {
+                ActionId = input.ActionId,
                 JobIds = activeJobIds,
                 SearchKeys = searchKeys
             },
@@ -140,7 +145,10 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
         };
     }
 
-    private async Task<string> RunIntentoLqaAction(string targetLanguage, List<string> searchKeys)
+    private async Task<string> RunIntentoLqaAction(
+        string actionId,
+        string targetLanguage,
+        List<string> searchKeys)
     {
         var request = new RestRequest("/storage/action/run", Method.Post);
         request.AddHeader("x-storage-path", IntentoLqaConstants.StoragePath);
@@ -148,7 +156,7 @@ public class IntentoLqaPollingList(InvocationContext invocationContext) : Intent
         {
             ["to"] = targetLanguage,
             ["searchKeys"] = JArray.FromObject(searchKeys),
-            ["actionId"] = IntentoLqaConstants.ActionId,
+            ["actionId"] = actionId,
             ["variables"] = new JObject()
         };
 

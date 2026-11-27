@@ -8,6 +8,9 @@ public class ReviewFileWithIntentoLqaBackgroundResponse
     [Display("Transformation file")]
     public FileReference File { get; set; } = default!;
 
+    [Display("Action ID")]
+    public string ActionId { get; set; } = string.Empty;
+
     [Display("Job IDs")]
     public IEnumerable<string> JobIds { get; set; } = [];
 
